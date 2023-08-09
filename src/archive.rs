@@ -27,7 +27,7 @@ struct ReadFile {
 pub fn archive(vault_path: PathBuf) {
     let walker = WalkDir::new(vault_path).into_iter();
 
-    for readFile in walker
+    for read_file in walker
         .filter_entry(is_visible)
         .map(|e| e.unwrap())
         .filter(|e| e.file_type().is_file())
@@ -38,6 +38,6 @@ pub fn archive(vault_path: PathBuf) {
         })
         .filter(|f| IS_TAGGED_TODO.is_match(f.content.as_str()))
     {
-        println!("{:#?}", entity);
+        println!("{:#?}", read_file);
     }
 }
