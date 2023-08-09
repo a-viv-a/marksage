@@ -42,7 +42,7 @@ fn main() {
 
     match args.command {
         Commands::Archive {} => {
-            archive();
+            archive(args.vault_path);
         }
     }
 }
