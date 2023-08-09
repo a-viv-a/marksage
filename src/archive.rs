@@ -55,6 +55,36 @@ pub fn archive(vault_path: PathBuf) {
         })
         .filter(|f| IS_TAGGED_TODO.is_match(f.content.as_str()))
     {
-        println!("{:#?}", read_file);
+        let mut marked_tree = false;
+        let mut pending_lines = vec![];
+        let mut finished_items = vec![];
+
+        for (indent_level, marked, todo) in PARSE_TODO_ITEMS
+            .captures_iter(read_file.content.as_str())
+            .map(|caps| {
+                let (todo, [indent, mark]) = caps.extract();
+                (indent.len(), mark != " ", todo)
+            })
+        {
+            // only put todo items into the archive if the root item is marked along with all of its children
+            if indent_level == 0 {
+                marked_tree = marked;
+                if !pending_lines.is_empty() {
+                    finished_items.push(pending_lines.join("\n"));
+                    pending_lines.clear();
+                }
+            }
+
+            if marked_tree {
+                if marked {
+                    pending_lines.push(todo);
+                } else {
+                    pending_lines.clear();
+                    marked_tree = false;
+                }
+            }
+        }
+
+        println!("{:#?}", finished_items);
     }
 }
