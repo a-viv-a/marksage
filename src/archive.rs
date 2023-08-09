@@ -12,9 +12,26 @@ fn is_visible(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+fn contains_tag(tag: &str) -> Result<Regex, regex::Error> {
+    Regex::new(
+        format!(
+            r"(?sx)^
+        (?:                 # match the optional frontmatter section
+            \n*                 # leading newlines
+            \-{{3}}             # frontmatter starts with `---`
+            .*\n                # frontmatter content  
+            \-{{3}}\n           # frontmatter ends with `---\n`
+        )?
+        \n*                 # match leading newlines
+        (?:\#[\w\-/]+\s)*   # match other tags
+        \#{tag}             # match the arbitrary tag"
+        )
+        .as_str(),
+    )
+}
+
 lazy_static! {
-    static ref IS_TAGGED_TODO: Regex =
-        Regex::new(r"(?s)^(?:\-{3}.*\n\-{3}\n)?\n*(?:#[\w\-/]+\s)*#todo").unwrap();
+    static ref IS_TAGGED_TODO: Regex = contains_tag("todo").unwrap();
     static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)-\s\[(x|\s)]\s.*$").unwrap();
 }
 
