@@ -32,6 +32,7 @@ fn contains_tag(tag: &str) -> Result<Regex, regex::Error> {
 
 lazy_static! {
     static ref IS_TAGGED_TODO: Regex = contains_tag("todo").unwrap();
+    static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
     static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)-\s\[(x|\s)]\s.*$").unwrap();
 }
 
@@ -55,12 +56,19 @@ pub fn archive(vault_path: PathBuf) {
         })
         .filter(|f| IS_TAGGED_TODO.is_match(f.content.as_str()))
     {
+        let pre_archived_section = GET_PRE_ARCHIVED_SECTION
+            .find(&read_file.content)
+            .map(|m| m.as_str())
+            .unwrap_or(read_file.content.as_str());
+
+        println!("pre_archived_section: {}", pre_archived_section);
+
         let mut marked_tree = false;
         let mut pending_lines = vec![];
         let mut finished_items = vec![];
 
         for (indent_level, marked, todo) in PARSE_TODO_ITEMS
-            .captures_iter(read_file.content.as_str())
+            .captures_iter(pre_archived_section)
             .map(|caps| {
                 let (todo, [indent, mark]) = caps.extract();
                 (indent.len(), mark != " ", todo)
