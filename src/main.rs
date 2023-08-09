@@ -11,7 +11,7 @@ fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
         Ok(true) => Ok(path),
         Ok(false) => Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("Path not found"),
+            "Path not found".to_string(),
         )),
         Err(e) => Err(e),
     }
