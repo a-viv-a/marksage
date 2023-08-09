@@ -85,6 +85,10 @@ pub fn archive(vault_path: PathBuf) {
             }
         }
 
+        if !pending_lines.is_empty() {
+            finished_items.push(pending_lines.join("\n"));
+        }
+
         println!("{:#?}", finished_items);
     }
 }
