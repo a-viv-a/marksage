@@ -4,6 +4,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use walkdir::{DirEntry, WalkDir};
 
+use crate::util;
+
 fn is_visible(entry: &DirEntry) -> bool {
     entry
         .file_name()
@@ -12,26 +14,8 @@ fn is_visible(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-fn contains_tag(tag: &str) -> Result<Regex, regex::Error> {
-    Regex::new(
-        format!(
-            r"(?sx)^
-        (?:                 # match the optional frontmatter section
-            \n*                 # leading newlines
-            \-{{3}}             # frontmatter starts with `---`
-            .*\n                # frontmatter content  
-            \-{{3}}\n           # frontmatter ends with `---\n`
-        )?
-        \n*                 # match leading newlines
-        (?:\#[\w\-/]+\s)*   # match other tags
-        \#{tag}             # match the arbitrary tag"
-        )
-        .as_str(),
-    )
-}
-
 lazy_static! {
-    static ref IS_TAGGED_TODO: Regex = contains_tag("todo").unwrap();
+    static ref IS_TAGGED_TODO: Regex = util::markdown_contains_tag("todo").unwrap();
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
     static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)-\s\[(x|\s)]\s.*$").unwrap();
 }

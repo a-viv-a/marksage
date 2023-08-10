@@ -1,4 +1,5 @@
 mod archive;
+mod util;
 
 use std::path::PathBuf;
 
