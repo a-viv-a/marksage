@@ -1,7 +1,4 @@
-use indoc::indoc;
 use regex::Regex;
-
-use lazy_static::lazy_static;
 
 /// Returns a regex that matches markdown files if they contain the given tag
 ///
@@ -29,6 +26,9 @@ pub fn markdown_contains_tag(tag: &str) -> Result<Regex, regex::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use indoc::indoc;
+    use lazy_static::lazy_static;
 
     lazy_static! {
         static ref IS_TAGGED_TODO: Regex = markdown_contains_tag("todo").unwrap();
