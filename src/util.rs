@@ -1,4 +1,5 @@
 use regex::Regex;
+use walkdir::DirEntry;
 
 /// Returns a regex that matches markdown files if they contain the given tag
 ///
@@ -21,6 +22,14 @@ pub fn markdown_contains_tag(tag: &str) -> Result<Regex, regex::Error> {
         )
         .as_str(),
     )
+}
+
+pub fn is_visible(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| !s.starts_with('.'))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
