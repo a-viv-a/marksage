@@ -4,7 +4,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use walkdir::WalkDir;
 
-use crate::{md_file::Markdown, util};
+use crate::{
+    md_file::{Markdown, MarkdownSection},
+    util,
+};
 
 lazy_static! {
     static ref IS_TAGGED_TODO: Regex = util::markdown_contains_tag("todo").unwrap();
@@ -37,15 +40,21 @@ pub fn archive(vault_path: PathBuf) {
         for (indent_level, marked, todo) in PARSE_TODO_ITEMS
             .captures_iter(pre_archived_section)
             .map(|caps| {
-                let (todo, [indent, mark]) = caps.extract();
-                (indent.len(), mark != " ", todo)
+                // i == 0 is guaranteed to be non none
+                let full_match = caps.get(0).unwrap();
+                let (_, [indent, mark]) = caps.extract();
+                (
+                    indent.len(),
+                    mark != " ",
+                    MarkdownSection::from_match(full_match),
+                )
             })
         {
             // only put todo items into the archive if the root item is marked along with all of its children
             if indent_level == 0 {
                 marked_tree = marked;
                 if !pending_lines.is_empty() {
-                    finished_items.push(pending_lines.join("\n"));
+                    finished_items.append(pending_lines.as_mut());
                     pending_lines.clear();
                 }
             }
@@ -61,9 +70,9 @@ pub fn archive(vault_path: PathBuf) {
         }
 
         if !pending_lines.is_empty() {
-            finished_items.push(pending_lines.join("\n"));
+            finished_items.append(pending_lines.as_mut());
         }
 
-        println!("{:#?}", finished_items);
+        println!("finished_items: {:?}", finished_items);
     }
 }
