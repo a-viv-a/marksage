@@ -35,10 +35,13 @@ mod tests {
     }
 
     macro_rules! markdown_contains_tag_tests {
-      ($($name:ident: $document:expr)*) => {
+      ($($name:ident $document:expr)*) => {
       $(
           #[test]
           fn $name() {
+              // error if name doesn't start with tagged or untagged
+              assert!(stringify!($name).starts_with("tagged") || stringify!($name).starts_with("untagged"));
+
               let document = indoc!($document);
               let is_tagged = stringify!($name).starts_with("tagged");
               assert_eq!(is_tagged, IS_TAGGED_TODO.is_match(document));
@@ -48,21 +51,21 @@ mod tests {
     }
 
     markdown_contains_tag_tests! {
-      untagged_document: r#"
+      untagged_document r#"
         - [ ] test
     "#
-      tagged_document: r#"
+      tagged_document r#"
         #todo #other
         - [ ] test
     "#
-      tagged_document_with_frontmatter: r#"
+      tagged_document_with_frontmatter r#"
         ---
         title: test
         ---
         #todo #other
         - [ ] test
     "#
-      tagged_document_with_frontmatter_and_newlines: r#"
+      tagged_document_with_frontmatter_and_newlines r#"
         ---
         title: test
         ---
@@ -72,17 +75,17 @@ mod tests {
 
         - [ ] test
     "#
-      untagged_document_with_tag_in_content: r#"
+      untagged_document_with_tag_in_content r#"
         - [ ] #todo test
     "#
-      untagged_document_with_tag_in_frontmatter: r#"
+      untagged_document_with_tag_in_frontmatter r#"
         ---
         title: #todo test
         ---
         - [ ] test
     "#
-      tagged_document_with_subtag: r#"
-        #todo/subtag
+      tagged_document_with_sub_tag r#"
+        #todo/sub-tag
         - [ ] test
     "#
     }
