@@ -88,5 +88,10 @@ mod tests {
         #todo/sub-tag
         - [ ] test
     "#
+      untagged_document_with_tag_after_header r#"
+        # Header
+        
+        #todo some stuff
+      "#
     }
 }
