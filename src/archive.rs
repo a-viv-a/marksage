@@ -12,7 +12,7 @@ lazy_static! {
     static ref GET_ARCHIVED_TODO_INSERTION_POINT: Regex = Regex::new(r"(?m)^## Archived\n\n").unwrap();
     // The position to insert the ## Archived section after
     static ref GET_ARCHIVED_HEADER_INSERTION_POINT: Regex =
-        Regex::new(r"(?s).*\n *- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
+        Regex::new(r"(?s)^(?:.*\n *)?- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
 }
 
 fn archive_markdown_file(markdown: markdown::File) -> markdown::Changes<'static> {
@@ -69,6 +69,11 @@ fn archive_markdown_file(markdown: markdown::File) -> markdown::Changes<'static>
     }
 
     let mut modified_file = markdown::Changes::on(markdown);
+
+    // do better this sucks
+    if finished_items.is_empty() {
+        return modified_file;
+    }
 
     GET_ARCHIVED_TODO_INSERTION_POINT
         .find(modified_file.get_content())

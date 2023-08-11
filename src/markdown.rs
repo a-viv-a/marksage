@@ -49,7 +49,7 @@ pub struct Changes<'a> {
     changes: Vec<Change<'a>>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum Operation<'a> {
     Add(&'a str),
     Remove(usize),
@@ -114,13 +114,15 @@ impl Changes<'_> {
         for (at, positional_operations) in operations {
             assert!(
                 at <= self.content.len(),
-                "at: {}, len: {} is invalid, at must be <= len",
+                "during {:#?} at: {}, len: {} is invalid, at must be <= len",
+                positional_operations,
                 at,
                 self.content.len()
             );
             assert!(
                 at >= last,
-                "at: {}, last: {} is invalid, at must be >= last",
+                "during {:#?} at: {}, last: {} is invalid, at must be >= last",
+                positional_operations,
                 at,
                 last
             );
