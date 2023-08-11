@@ -12,7 +12,7 @@ impl File {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Section {
     start: usize,
     end: usize,

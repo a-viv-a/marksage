@@ -86,7 +86,7 @@ pub fn archive(vault_path: PathBuf) {
             .map(markdown::Position::after_match)
             .map(|insertion_position| {
                 finished_items.iter().for_each(|item| {
-                    modified_file.cut_and_paste(item, insertion_position);
+                    modified_file.cut_and_paste(*item, insertion_position);
                 });
 
                 modified_file.apply();
@@ -99,7 +99,7 @@ pub fn archive(vault_path: PathBuf) {
                         modified_file.insert("\n## Archived\n\n", insertion_position);
 
                         finished_items.iter().for_each(|item| {
-                            modified_file.cut_and_paste(item, insertion_position);
+                            modified_file.cut_and_paste(*item, insertion_position);
                         });
 
                         modified_file.apply();
