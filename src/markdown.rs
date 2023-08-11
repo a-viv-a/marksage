@@ -162,3 +162,12 @@ impl Changes<'_> {
         Ok(())
     }
 }
+
+pub mod testing {
+    pub fn produce_fake_file(content: &str) -> super::File {
+        super::File {
+            path: std::path::PathBuf::from(""),
+            content: content.to_string(),
+        }
+    }
+}

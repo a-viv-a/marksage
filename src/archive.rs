@@ -101,3 +101,75 @@ pub fn archive(vault_path: PathBuf) {
         .map(markdown::Changes::apply)
         .for_each(Result::unwrap);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use indoc::indoc;
+    use pretty_assertions::assert_eq;
+
+    macro_rules! test_archive {
+      ($($name:ident $before:expr => $after:expr)*) => {
+      $(
+          #[test]
+          fn $name() {
+            let before = indoc!($before);
+            let after = indoc!($after);
+            let file = markdown::testing::produce_fake_file(before);
+            let modified_file = archive_markdown_file(file);
+            assert_eq!(after, modified_file.get_content());
+          }
+      )*
+      }
+    }
+
+    test_archive! {
+        untouched r#"
+        - [ ] item 1
+        "# => r#"
+        - [ ] item 1
+        "#
+
+        archive_single_item r#"
+        - [x] item 1
+        "# => r#"
+
+        ## Archived
+
+        - [x] item 1
+        "#
+
+        archive_multiple_items r#"
+        - [x] item 1
+        - [x] item 2
+        - [ ] item 3
+        "# => r#"
+        - [ ] item 3
+
+        ## Archived
+
+        - [x] item 1
+        - [x] item 2
+        "#
+
+        archive_multiple_items_with_sub_items r#"
+        - [x] item 1
+            - [x] item 1.1
+            - [x] item 1.2
+        - [x] item 2
+            - [ ] item 2.1
+        - [ ] item 3
+        "# => r#"
+        - [x] item 2
+            - [ ] item 2.1
+        - [ ] item 3
+
+        ## Archived
+
+        - [x] item 1
+            - [x] item 1.1
+            - [x] item 1.2
+        "#
+    }
+}
