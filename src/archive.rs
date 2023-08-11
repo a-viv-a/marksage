@@ -14,7 +14,7 @@ lazy_static! {
     static ref GET_ARCHIVED_TODO_INSERTION_POINT: Regex = Regex::new(r"(?m)^## Archived\n\n").unwrap();
     // The position to insert the ## Archived section after
     static ref GET_ARCHIVED_HEADER_INSERTION_POINT: Regex =
-        Regex::new(r"(?s).*\n *- \[(?:x|\s)] .*?(?:$|\n)").unwrap();
+        Regex::new(r"(?s).*\n *- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
 }
 
 pub fn archive(vault_path: PathBuf) {
@@ -93,10 +93,10 @@ pub fn archive(vault_path: PathBuf) {
             })
             .or_else(|| {
                 GET_ARCHIVED_HEADER_INSERTION_POINT
-                    .find(modified_file.get_content())
-                    .map(markdown::Position::after_match)
+                    .captures(modified_file.get_content())
+                    .map(|caps| markdown::Position::after_match(caps.get(1).unwrap()))
                     .map(|insertion_position| {
-                        modified_file.insert("\n## Archived\n\n", insertion_position);
+                        modified_file.insert("\n\n## Archived\n\n", insertion_position);
 
                         finished_items.iter().for_each(|item| {
                             modified_file.cut_and_paste(*item, insertion_position);
