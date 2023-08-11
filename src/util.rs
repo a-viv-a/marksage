@@ -1,5 +1,9 @@
+use std::path::PathBuf;
+
 use regex::Regex;
-use walkdir::DirEntry;
+use walkdir::{DirEntry, WalkDir};
+
+use crate::markdown;
 
 /// Returns a regex that matches markdown files if they contain the given tag
 ///
@@ -30,6 +34,22 @@ pub fn is_visible(entry: &DirEntry) -> bool {
         .to_str()
         .map(|s| !s.starts_with('.'))
         .unwrap_or(false)
+}
+
+pub fn iterate_markdown_files(
+    vault_path: PathBuf,
+    tag: &str,
+) -> impl Iterator<Item = markdown::File> {
+    let is_tagged = markdown_contains_tag(tag).unwrap();
+
+    WalkDir::new(vault_path)
+        .into_iter()
+        .filter_entry(is_visible)
+        .map(|e| e.unwrap())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().unwrap_or_default() == "md")
+        .map(|e| markdown::File::at_path(e.path().to_path_buf()).unwrap())
+        .filter(move |f| is_tagged.is_match(f.content.as_str()))
 }
 
 #[cfg(test)]

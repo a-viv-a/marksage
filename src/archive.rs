@@ -2,12 +2,10 @@ use std::path::PathBuf;
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use walkdir::WalkDir;
 
-use crate::{markdown, util};
+use crate::{markdown, util::iterate_markdown_files};
 
 lazy_static! {
-    static ref IS_TAGGED_TODO: Regex = util::markdown_contains_tag("todo").unwrap();
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
     static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)- \[(x| )] .*$\n?").unwrap();
     // The position to insert an archived todo after
@@ -18,16 +16,7 @@ lazy_static! {
 }
 
 pub fn archive(vault_path: PathBuf) {
-    let walker = WalkDir::new(vault_path).into_iter();
-
-    for markdown in walker
-        .filter_entry(util::is_visible)
-        .map(|e| e.unwrap())
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().extension().unwrap_or_default() == "md")
-        .map(|e| markdown::File::at_path(e.path().to_path_buf()).unwrap())
-        .filter(|f| IS_TAGGED_TODO.is_match(f.content.as_str()))
-    {
+    for markdown in iterate_markdown_files(vault_path, "todo") {
         let pre_archived_section = GET_PRE_ARCHIVED_SECTION
             .find(&markdown.content)
             .map(|m| m.as_str())
