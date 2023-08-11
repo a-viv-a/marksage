@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{convert::identity, path::PathBuf};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -15,96 +15,15 @@ lazy_static! {
         Regex::new(r"(?s)^(?:.*\n *)?- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
 }
 
-fn archive_markdown_file(markdown: markdown::File) -> markdown::Changes<'static> {
-    let pre_archived_section = GET_PRE_ARCHIVED_SECTION
-        .find(&markdown.content)
-        .map(|m| m.as_str())
-        .unwrap_or(markdown.content.as_str());
-
-    println!("pre_archived_section: {}", pre_archived_section);
-
-    let mut marked_tree = false;
-    let mut pending_lines = vec![];
-    let mut finished_items = vec![];
-
-    for (indent_level, marked, todo) in
-        PARSE_TODO_ITEMS
-            .captures_iter(pre_archived_section)
-            .map(|caps| {
-                // i == 0 is guaranteed to be non none
-                let full_match = caps.get(0).unwrap();
-                let (_, [indent, mark]) = caps.extract();
-                (
-                    if indent.is_empty() || indent.starts_with('\t') {
-                        indent.len()
-                    } else {
-                        indent.len() / 4
-                    },
-                    mark != " ",
-                    markdown::Section::from_match(full_match),
-                )
-            })
-    {
-        // only put todo items into the archive if the root item is marked along with all of its children
-        if indent_level == 0 {
-            marked_tree = marked;
-            if !pending_lines.is_empty() {
-                finished_items.append(pending_lines.as_mut());
-                pending_lines.clear();
-            }
-        }
-
-        if marked_tree {
-            if marked {
-                pending_lines.push(todo);
-            } else {
-                pending_lines.clear();
-                marked_tree = false;
-            }
-        }
-    }
-
-    if !pending_lines.is_empty() {
-        finished_items.append(pending_lines.as_mut());
-    }
-
-    let mut modified_file = markdown::Changes::on(markdown);
-
-    // do better this sucks
-    if finished_items.is_empty() {
-        return modified_file;
-    }
-
-    GET_ARCHIVED_TODO_INSERTION_POINT
-        .find(modified_file.get_content())
-        .map(markdown::Position::after_match)
-        .map(|insertion_position| {
-            finished_items.iter().for_each(|item| {
-                modified_file.cut_and_paste(*item, insertion_position);
-            });
-        })
-        .or_else(|| {
-            GET_ARCHIVED_HEADER_INSERTION_POINT
-                .captures(modified_file.get_content())
-                .map(|caps| markdown::Position::after_match(caps.get(1).unwrap()))
-                .map(|insertion_position| {
-                    modified_file.insert("\n\n## Archived\n\n", insertion_position);
-
-                    finished_items.iter().for_each(|item| {
-                        modified_file.cut_and_paste(*item, insertion_position);
-                    });
-                })
-        });
-
-    modified_file
+fn archive_markdown(markdown: &str) -> Option<String> {
+    None
 }
 
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
-        .map(archive_markdown_file)
-        .filter(markdown::Changes::has_changes)
-        .map(markdown::Changes::apply)
-        .for_each(Result::unwrap);
+        .map(|f| archive_markdown(&f.content).map(|c| (f, c)))
+        .filter_map(identity)
+        .for_each(|(f, c)| f.atomic_overwrite(&c).unwrap());
 }
 
 #[cfg(test)]
@@ -115,15 +34,17 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     macro_rules! test_archive {
-      ($($name:ident $before:expr => $after:expr)*) => {
+      ($($name:ident $file:expr => $expected:expr)*) => {
         $(
             #[test]
             fn $name() {
-                let before = indoc!($before);
-                let after = indoc!($after);
-                let file = markdown::testing::produce_fake_file(before);
-                let modified_file = archive_markdown_file(file);
-                assert_eq!(after, markdown::testing::view_changes(&modified_file));
+                let file = indoc!($file);
+                let expected = indoc!($expected);
+                match archive_markdown(file) {
+                    Some(actual) => assert_eq!(expected, &actual),
+                    None => assert!(file == expected, "archive_markdown returned None, but the expected output was not the input file. Input was:\n{}", file),
+                }
+
             }
         )*
       }
