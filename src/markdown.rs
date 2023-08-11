@@ -1,5 +1,8 @@
 use std::{collections::BTreeMap, fs, io, path::PathBuf};
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 pub struct File {
     path: PathBuf,
     pub content: String,
@@ -55,6 +58,10 @@ enum Operation<'a> {
     Remove(usize),
 }
 
+lazy_static! {
+    static ref MARKDOWN_LINTS: Vec<(Regex, &'static str)> = vec![(Regex::new(r"\n$").unwrap(), "")];
+}
+
 // this is overly complicated, but it's a very fun exercise
 impl Changes<'_> {
     pub fn on(file: File) -> Self {
@@ -82,6 +89,10 @@ impl Changes<'_> {
     }
 
     fn compute_new_content(&self) -> String {
+        if self.changes.is_empty() {
+            return self.content.clone();
+        }
+
         let mut operations: BTreeMap<usize, Vec<Operation<'_>>> = BTreeMap::new();
 
         let mut insert_operation = |key, operation| {
@@ -150,6 +161,10 @@ impl Changes<'_> {
         }
 
         new_content.push_str(&self.content[last..]);
+
+        for (regex, replacement) in &*MARKDOWN_LINTS {
+            new_content = regex.replace_all(&new_content, *replacement).to_string();
+        }
 
         new_content
     }
