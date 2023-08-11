@@ -111,20 +111,21 @@ mod tests {
 
     macro_rules! test_archive {
       ($($name:ident $before:expr => $after:expr)*) => {
-      $(
-          #[test]
-          fn $name() {
-            let before = indoc!($before);
-            let after = indoc!($after);
-            let file = markdown::testing::produce_fake_file(before);
-            let modified_file = archive_markdown_file(file);
-            assert_eq!(after, modified_file.get_content());
-          }
-      )*
+        $(
+            #[test]
+            fn $name() {
+                let before = indoc!($before);
+                let after = indoc!($after);
+                let file = markdown::testing::produce_fake_file(before);
+                let modified_file = archive_markdown_file(file);
+                assert_eq!(after, markdown::testing::view_changes(&modified_file));
+            }
+        )*
       }
     }
 
     test_archive! {
+
         untouched r#"
         - [ ] item 1
         "# => r#"

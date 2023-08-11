@@ -133,7 +133,6 @@ impl Changes<'_> {
                 .for_each(|operation| match operation {
                     Operation::Add(content) => new_content.push_str(content),
                     Operation::Remove(len) => {
-                        new_content.truncate(new_content.len() - len);
                         deletion_offset = *len;
                     }
                 });
@@ -169,5 +168,9 @@ pub mod testing {
             path: std::path::PathBuf::from(""),
             content: content.to_string(),
         }
+    }
+
+    pub fn view_changes(changes: &super::Changes) -> String {
+        changes.compute_new_content()
     }
 }
