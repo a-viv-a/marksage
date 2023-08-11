@@ -79,17 +79,31 @@ pub fn archive(vault_path: PathBuf) {
             finished_items.append(pending_lines.as_mut());
         }
 
+        let mut modified_file = markdown::Changes::on(markdown);
+
         GET_ARCHIVED_TODO_INSERTION_POINT
-            .find(&markdown.content)
+            .find(modified_file.get_content())
             .map(markdown::Position::after_match)
             .map(|insertion_position| {
-                let mut modified_file = markdown::Changes::on(markdown);
-
-                finished_items.into_iter().for_each(|item| {
+                finished_items.iter().for_each(|item| {
                     modified_file.cut_and_paste(item, insertion_position);
                 });
 
-                modified_file.apply().unwrap();
+                modified_file.apply();
+            })
+            .or_else(|| {
+                GET_ARCHIVED_HEADER_INSERTION_POINT
+                    .find(modified_file.get_content())
+                    .map(markdown::Position::after_match)
+                    .map(|insertion_position| {
+                        modified_file.insert("\n## Archived\n\n", insertion_position);
+
+                        finished_items.iter().for_each(|item| {
+                            modified_file.cut_and_paste(item, insertion_position);
+                        });
+
+                        modified_file.apply();
+                    })
             });
 
         // finished_items.into_iter().for_each(|item| {

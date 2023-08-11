@@ -38,15 +38,15 @@ impl Position {
     }
 }
 
-enum Change {
+enum Change<'a> {
     CutPaste(Section, Position),
-    Insert(String, Position),
+    Insert(&'a str, Position),
 }
 
-pub struct Changes {
+pub struct Changes<'a> {
     target_path: PathBuf,
     content: String,
-    changes: Vec<Change>,
+    changes: Vec<Change<'a>>,
 }
 
 enum Operation<'a> {
@@ -55,7 +55,7 @@ enum Operation<'a> {
 }
 
 // this is overly complicated, but it's a very fun exercise
-impl Changes {
+impl Changes<'_> {
     pub fn on(file: File) -> Self {
         Self {
             target_path: file.path,
@@ -64,15 +64,20 @@ impl Changes {
         }
     }
 
+    pub fn get_content(&self) -> &str {
+        &self.content
+    }
+
     pub fn cut_and_paste(&mut self, from: Section, to: Position) {
         self.changes.push(Change::CutPaste(from, to));
     }
 
-    pub fn insert(&mut self, content: String, at: Position) {
+    pub fn insert(&mut self, content: &'static str, at: Position) {
         self.changes.push(Change::Insert(content, at));
     }
 
     fn compute_new_content(&self) -> String {
+        // FIXME: should be usize: vec![Operation]
         let mut operations = BTreeMap::new();
 
         for change in &self.changes {
@@ -96,6 +101,8 @@ impl Changes {
         let mut last = 0;
 
         for (at, content) in operations {
+            assert!(at <= self.content.len());
+
             new_content.push_str(&self.content[last..at]);
             match content {
                 Operation::Add(content) => {
@@ -113,6 +120,7 @@ impl Changes {
         new_content
     }
 
+    /// Atomically write the changes to the file
     pub fn apply(&self) -> io::Result<()> {
         let mut tmp_path = self.target_path.clone();
         tmp_path.set_extension("tmp.md");
