@@ -4,32 +4,34 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use walkdir::WalkDir;
 
-use crate::{
-    md_file::{Markdown, MarkdownSection},
-    util,
-};
+use crate::{markdown, util};
 
 lazy_static! {
     static ref IS_TAGGED_TODO: Regex = util::markdown_contains_tag("todo").unwrap();
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
-    static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)-\s\[(x|\s)]\s.*$").unwrap();
+    static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)- \[(x| )] .*$\n?").unwrap();
+    // The position to insert an archived todo after
+    static ref GET_ARCHIVED_TODO_INSERTION_POINT: Regex = Regex::new(r"(?m)^## Archived\n\n").unwrap();
+    // The position to insert the ## Archived section after
+    static ref GET_ARCHIVED_HEADER_INSERTION_POINT: Regex =
+        Regex::new(r"(?ms).*\n^ *- \[(?:x|\s)] .*?\n").unwrap();
 }
 
 pub fn archive(vault_path: PathBuf) {
     let walker = WalkDir::new(vault_path).into_iter();
 
-    for read_file in walker
+    for markdown in walker
         .filter_entry(util::is_visible)
         .map(|e| e.unwrap())
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().unwrap_or_default() == "md")
-        .map(|e| Markdown::at_path(e.path().to_path_buf()).unwrap())
+        .map(|e| markdown::File::at_path(e.path().to_path_buf()).unwrap())
         .filter(|f| IS_TAGGED_TODO.is_match(f.content.as_str()))
     {
         let pre_archived_section = GET_PRE_ARCHIVED_SECTION
-            .find(&read_file.content)
+            .find(&markdown.content)
             .map(|m| m.as_str())
-            .unwrap_or(read_file.content.as_str());
+            .unwrap_or(markdown.content.as_str());
 
         println!("pre_archived_section: {}", pre_archived_section);
 
@@ -44,9 +46,13 @@ pub fn archive(vault_path: PathBuf) {
                 let full_match = caps.get(0).unwrap();
                 let (_, [indent, mark]) = caps.extract();
                 (
-                    indent.len(),
+                    if indent.is_empty() || indent.starts_with('\t') {
+                        indent.len()
+                    } else {
+                        indent.len() / 4
+                    },
                     mark != " ",
-                    MarkdownSection::from_match(full_match),
+                    markdown::Section::from_match(full_match),
                 )
             })
         {
@@ -73,6 +79,21 @@ pub fn archive(vault_path: PathBuf) {
             finished_items.append(pending_lines.as_mut());
         }
 
-        println!("finished_items: {:?}", finished_items);
+        GET_ARCHIVED_TODO_INSERTION_POINT
+            .find(&markdown.content)
+            .map(markdown::Position::after_match)
+            .map(|insertion_position| {
+                let mut modified_file = markdown::Changes::on(markdown);
+
+                finished_items.into_iter().for_each(|item| {
+                    modified_file.cut_and_paste(item, insertion_position);
+                });
+
+                modified_file.apply().unwrap();
+            });
+
+        // finished_items.into_iter().for_each(|item| {
+        //     modified_file.cut_and_paste(item, to);
+        // });
     }
 }
