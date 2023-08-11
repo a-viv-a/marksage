@@ -14,7 +14,7 @@ lazy_static! {
     static ref GET_ARCHIVED_TODO_INSERTION_POINT: Regex = Regex::new(r"(?m)^## Archived\n\n").unwrap();
     // The position to insert the ## Archived section after
     static ref GET_ARCHIVED_HEADER_INSERTION_POINT: Regex =
-        Regex::new(r"(?ms).*\n^ *- \[(?:x|\s)] .*?\n").unwrap();
+        Regex::new(r"(?s).*\n *- \[(?:x|\s)] .*?(?:$|\n)").unwrap();
 }
 
 pub fn archive(vault_path: PathBuf) {
