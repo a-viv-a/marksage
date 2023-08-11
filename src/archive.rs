@@ -89,7 +89,7 @@ pub fn archive(vault_path: PathBuf) {
                     modified_file.cut_and_paste(*item, insertion_position);
                 });
 
-                modified_file.apply();
+                let _ = modified_file.apply();
             })
             .or_else(|| {
                 GET_ARCHIVED_HEADER_INSERTION_POINT
@@ -102,7 +102,7 @@ pub fn archive(vault_path: PathBuf) {
                             modified_file.cut_and_paste(*item, insertion_position);
                         });
 
-                        modified_file.apply();
+                        let _ = modified_file.apply();
                     })
             });
     }
