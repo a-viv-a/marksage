@@ -105,9 +105,5 @@ pub fn archive(vault_path: PathBuf) {
                         modified_file.apply();
                     })
             });
-
-        // finished_items.into_iter().for_each(|item| {
-        //     modified_file.cut_and_paste(item, to);
-        // });
     }
 }

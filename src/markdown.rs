@@ -49,6 +49,7 @@ pub struct Changes<'a> {
     changes: Vec<Change<'a>>,
 }
 
+#[derive(Copy, Clone)]
 enum Operation<'a> {
     Add(&'a str),
     Remove(usize),
@@ -77,21 +78,27 @@ impl Changes<'_> {
     }
 
     fn compute_new_content(&self) -> String {
-        // FIXME: should be usize: vec![Operation]
-        let mut operations = BTreeMap::new();
+        let mut operations: BTreeMap<usize, Vec<Operation<'_>>> = BTreeMap::new();
+
+        let mut insert_operation = |key, operation| {
+            operations
+                .entry(key)
+                .and_modify(|vec| vec.push(operation))
+                .or_insert_with(|| vec![operation]);
+        };
 
         for change in &self.changes {
             match change {
                 Change::CutPaste(section, position) => {
                     let content = &self.content[section.start..section.end];
-                    operations.insert(
+                    insert_operation(
                         section.start,
                         Operation::Remove(section.end - section.start),
                     );
-                    operations.insert(position.at, Operation::Add(content));
+                    insert_operation(position.at, Operation::Add(content));
                 }
                 Change::Insert(content, position) => {
-                    operations.insert(position.at, Operation::Add(content));
+                    insert_operation(position.at, Operation::Add(content));
                 }
             }
         }
@@ -100,19 +107,41 @@ impl Changes<'_> {
 
         let mut last = 0;
 
-        for (at, content) in operations {
-            assert!(at <= self.content.len());
+        for (at, positional_operations) in operations {
+            assert!(
+                at <= self.content.len(),
+                "at: {}, len: {} is invalid, at must be <= len",
+                at,
+                self.content.len()
+            );
+            assert!(
+                at >= last,
+                "at: {}, last: {} is invalid, at must be >= last",
+                at,
+                last
+            );
+
+            let mut deletion_offset = 0;
 
             new_content.push_str(&self.content[last..at]);
-            match content {
-                Operation::Add(content) => {
-                    new_content.push_str(content);
-                    last = at;
-                }
-                Operation::Remove(len) => {
-                    last = at + len;
-                }
+            positional_operations
+                .iter()
+                .for_each(|operation| match operation {
+                    Operation::Add(content) => new_content.push_str(content),
+                    Operation::Remove(len) => {
+                        new_content.truncate(new_content.len() - len);
+                        deletion_offset = *len;
+                    }
+                });
+
+            if deletion_offset > 0 {
+                assert!(
+                    positional_operations.len() == 1,
+                    "a position with a deletion should only have one operation"
+                );
             }
+
+            last = at + deletion_offset;
         }
 
         new_content.push_str(&self.content[last..]);
