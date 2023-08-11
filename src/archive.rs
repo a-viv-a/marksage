@@ -3,7 +3,7 @@ use std::{convert::identity, path::PathBuf};
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::{markdown, util::iterate_markdown_files};
+use crate::util::iterate_markdown_files;
 
 lazy_static! {
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
@@ -16,12 +16,15 @@ lazy_static! {
 }
 
 fn archive_markdown(markdown: &str) -> Option<String> {
+    let ast =
+        markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
+
     None
 }
 
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
-        .map(|f| archive_markdown(&f.content).map(|c| (f, c)))
+        .map(|f: crate::markdown_file::File| archive_markdown(&f.content).map(|c| (f, c)))
         .filter_map(identity)
         .for_each(|(f, c)| f.atomic_overwrite(&c).unwrap());
 }

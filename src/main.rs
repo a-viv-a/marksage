@@ -1,5 +1,5 @@
 mod archive;
-mod markdown;
+mod markdown_file;
 mod util;
 
 use std::path::PathBuf;
