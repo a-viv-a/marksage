@@ -65,6 +65,10 @@ impl Changes<'_> {
         }
     }
 
+    pub fn has_changes(&self) -> bool {
+        !self.changes.is_empty()
+    }
+
     pub fn get_content(&self) -> &str {
         &self.content
     }
@@ -150,7 +154,7 @@ impl Changes<'_> {
     }
 
     /// Atomically write the changes to the file
-    pub fn apply(&self) -> io::Result<()> {
+    pub fn apply(self) -> io::Result<()> {
         let mut tmp_path = self.target_path.clone();
         tmp_path.set_extension("tmp.md");
         fs::write(&tmp_path, self.compute_new_content())?;
