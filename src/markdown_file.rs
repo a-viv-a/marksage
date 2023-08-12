@@ -22,14 +22,6 @@ impl File {
     }
 }
 
-fn ast_string(nodes: &Vec<Node>) -> String {
-    nodes
-        .iter()
-        .map(mdast_to_markdown)
-        .collect::<Vec<String>>()
-        .join("")
-}
-
 fn indent(li: &mdast::ListItem) -> String {
     li.position
         .as_ref()
@@ -53,19 +45,27 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     longest
 }
 
-pub fn mdast_to_markdown(node: &Node) -> String {
+fn recursive_mdast_string(nodes: &Vec<Node>) -> String {
+    nodes
+        .iter()
+        .map(mdast_string)
+        .collect::<Vec<String>>()
+        .join("")
+}
+
+fn mdast_string(node: &Node) -> String {
     match node {
-        Node::Root(_) => ast_string(node.children().unwrap()),
+        Node::Root(_) => recursive_mdast_string(node.children().unwrap()),
         Node::Heading(heading) => {
             format!(
-                "{} {}\n\n",
+                "{} {}\n",
                 "#".repeat(heading.depth as usize),
-                ast_string(node.children().unwrap())
+                recursive_mdast_string(node.children().unwrap())
             )
         }
         Node::Text(t) => t.value.clone(),
-        Node::Paragraph(p) => format!("{}\n", ast_string(&p.children)),
-        Node::List(l) => ast_string(&l.children),
+        Node::Paragraph(p) => format!("{}\n", recursive_mdast_string(&p.children)),
+        Node::List(l) => recursive_mdast_string(&l.children),
         Node::ListItem(li) => format!(
             "{}- {}{}",
             indent(li),
@@ -74,10 +74,10 @@ pub fn mdast_to_markdown(node: &Node) -> String {
                 Some(false) => "[ ] ",
                 None => "",
             },
-            ast_string(&li.children)
+            recursive_mdast_string(&li.children)
         ),
         Node::Code(c) => format!(
-            "```{}\n{}\n```",
+            "```{}\n{}\n```\n",
             c.lang.as_ref().unwrap_or(&String::new()),
             c.value
         ),
@@ -87,6 +87,26 @@ pub fn mdast_to_markdown(node: &Node) -> String {
         }
         _ => panic!("Unexpected node type {:#?}", node),
     }
+}
+
+pub fn mdast_to_markdown(node: &Node) -> String {
+    assert!(
+        match node {
+            Node::Root(_) => true,
+            _ => false,
+        },
+        "mdast_to_markdown must be called with a Root node, not {:#?}",
+        node
+    );
+
+    node.children()
+        .map(|c| {
+            c.iter()
+                .map(mdast_string)
+                .collect::<Vec<String>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
