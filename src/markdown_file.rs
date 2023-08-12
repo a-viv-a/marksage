@@ -94,6 +94,17 @@ fn mdast_string(node: &Node) -> String {
             let backtick = "`".repeat(count_longest_sequential_chars(&c.value, '`') + 1);
             format!("{}{}{}", backtick, c.value, backtick)
         }
+
+        // this section needs work
+        Node::Emphasis(e) => format!("*{}*", recursive_mdast_string(&e.children)),
+        Node::Strong(s) => format!("**{}**", recursive_mdast_string(&s.children)),
+        Node::Link(l) => format!("[{}]({})", recursive_mdast_string(&l.children), l.url),
+        Node::Image(i) => format!("![]({})", i.url),
+        // needs to insert > at the start of each line
+        Node::BlockQuote(b) => format!("> {}\n", recursive_mdast_string(&b.children)),
+        Node::ThematicBreak(_) => "---\n".to_string(),
+        Node::Html(h) => h.value.clone(),
+        Node::Table(t) => "TODO: table".to_string(),
         _ => panic!("Unexpected node type {:#?}", node),
     }
 }
@@ -130,7 +141,8 @@ mod tests {
                     let file = indoc!($file);
                     let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
                     let render = mdast_to_markdown(&ast);
-                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\nexpected:\n{}\nactual:\n{}", ast, stringify!($name), file, render);
+                    println!("expected:\n{}\nactual:\n{}", file, render);
+                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}", ast, stringify!($name));
                 }
             )*
         }
@@ -191,6 +203,105 @@ mod tests {
 
         - item 1
         - item 2
+        "#
+
+        mdast_emphasis_and_lists r#"
+        *Italic*, **bold**, ***both***.
+        1. First
+        2. Second
+        - Nested 1
+        - Nested 2
+        "#
+
+        mdast_links r#"
+        [Google](https://www.google.com)
+        ![Image](https://via.placeholder.com/150)
+        "#
+
+        mdast_headers_and_code r#"
+
+        ## Headers & Code
+
+        ### Header 3
+
+        #### Header 4
+
+        ###### Header 5
+
+        ```python
+        print("Code block")
+        ```
+        "#
+
+        mdast_block_quote_thematic_break r#"
+
+        > Quote
+        > Multi-line.
+
+        ---
+
+        > Quote
+        "#
+
+        mdast_escaping_rigorous r#"
+        \*Not italic.\*
+        \*\*Not bold.\*\*
+        \*\*\*Not both.\*\*\*
+
+        \# Not a header.
+
+        \- Not a list.
+        
+        \[Not a link\](https://www.google.com)
+
+        \!Not an image\](https://via.placeholder.com/150)
+
+        \```Not a code block\```
+
+        \``Not inline code\``
+
+        \> Not a block quote.
+
+        \--- Not a thematic break.
+
+        \& Not an HTML entity.
+
+        \&amp; Not an HTML entity.
+
+        \&nbsp; Not an HTML entity.
+
+        \&copy; Not an HTML entity.
+        "#
+
+        mdast_html r#"
+        <p>HTML block</p>
+        <div style="color: blue;">
+            Raw <strong>HTML</strong>
+        </div>
+        
+        normal text
+
+        <b>HTML</b>
+        "#
+
+        mdast_table r#"
+
+        | Header | Header |
+        | ------ | ------ |
+        | Cell   | Cell   |
+
+        "#
+
+        mdast_footnotes_and_auto_links r#"
+        ## Footnotes & Auto Links
+
+        Footnote[^1].
+        <https://www.example.com>
+
+        ## References & Raw HTML
+
+        [Ref][1]
+        [1]: https://www.example.com
         "#
     }
 
