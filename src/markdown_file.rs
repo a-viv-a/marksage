@@ -37,7 +37,7 @@ impl MdastDocument {
             .map(|c| c.get(1).unwrap().as_str().to_string());
 
         let body = markdown::to_mdast(
-            &file.content[frontmatter.as_ref().map_or(0, |f| f.len() + 12)..],
+            &file.content[frontmatter.as_ref().map_or(0, |f| f.len() + 10)..],
             &markdown::ParseOptions::gfm(),
         )
         .expect("never fails with gfm");
@@ -61,12 +61,18 @@ impl MdastDocument {
     }
 
     pub fn render(&self) -> String {
-        self.body
-            .children
-            .iter()
-            .map(mdast_string)
-            .collect::<Vec<String>>()
-            .join("\n")
+        format!(
+            "{}{}",
+            self.frontmatter
+                .as_ref()
+                .map_or_else(String::new, |f| format!("---\n{}\n---\n\n", f)),
+            self.body
+                .children
+                .iter()
+                .map(mdast_string)
+                .collect::<Vec<String>>()
+                .join("\n")
+        )
     }
 }
 
