@@ -33,8 +33,24 @@ fn ast_string(nodes: &Vec<Node>) -> String {
 fn indent(li: &mdast::ListItem) -> String {
     li.position
         .as_ref()
-        .map(|p| " ".repeat(p.start.column.checked_sub(1).unwrap_or(0) * 2))
+        .map(|p| " ".repeat((p.start.column - 1) * 2))
         .unwrap_or_default()
+}
+
+fn count_longest_sequential_chars(s: &str, c: char) -> usize {
+    let mut longest = 0;
+    let mut count = 0;
+
+    for ch in s.chars() {
+        if ch == c {
+            count += 1;
+        } else {
+            longest = longest.max(count);
+            count = 0;
+        }
+    }
+
+    longest
 }
 
 pub fn mdast_to_markdown(node: &Node) -> String {
@@ -49,17 +65,26 @@ pub fn mdast_to_markdown(node: &Node) -> String {
         }
         Node::Text(t) => t.value.clone(),
         Node::Paragraph(p) => format!("{}\n", ast_string(&p.children)),
-        Node::List(l) => l
-            .children
-            .iter()
-            .map(mdast_to_markdown)
-            .collect::<Vec<String>>()
-            .join(""),
-        Node::ListItem(li) => match li.checked {
-            Some(true) => format!("{}- [x] {}", indent(li), ast_string(&li.children)),
-            Some(false) => format!("{}- [ ] {}", indent(li), ast_string(&li.children)),
-            None => format!("{}- {}", indent(li), ast_string(&li.children)),
-        },
+        Node::List(l) => ast_string(&l.children),
+        Node::ListItem(li) => format!(
+            "{}- {}{}",
+            indent(li),
+            match li.checked {
+                Some(true) => "[x] ",
+                Some(false) => "[ ] ",
+                None => "",
+            },
+            ast_string(&li.children)
+        ),
+        Node::Code(c) => format!(
+            "```{}\n{}\n```",
+            c.lang.as_ref().unwrap_or(&String::new()),
+            c.value
+        ),
+        Node::InlineCode(c) => {
+            let backtick = "`".repeat(count_longest_sequential_chars(&c.value, '`') + 1);
+            format!("{}{}{}", backtick, c.value, backtick)
+        }
         _ => panic!("Unexpected node type {:#?}", node),
     }
 }
@@ -79,7 +104,7 @@ mod tests {
                     let file = indoc!($file);
                     let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
                     let render = mdast_to_markdown(&ast);
-                    assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}", ast, stringify!($name));
+                    assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\nexpected:\n{}\nactual:\n{}", ast, stringify!($name), file, render);
                 }
             )*
         }
@@ -121,7 +146,16 @@ mod tests {
 
         some text
 
-        Here is some ``inline code``.
+        Here is some `inline code`.
+
+        Here is more with ```a `` backticks inside```.
+        "#
+
+        lists r#"
+        # Heading
+
+        - item 1
+        - item 2
         "#
     }
 }
