@@ -22,10 +22,19 @@ impl File {
     }
 }
 
-fn indent(li: &mdast::ListItem) -> String {
+fn indent(li: &mdast::ListItem) -> usize {
     li.position
         .as_ref()
-        .map(|p| " ".repeat((p.start.column - 1) * 2))
+        .map(|p| {
+            if p.start.column == 1 {
+                0
+            } else {
+                // this makes no sense, but works with the parser
+                // it's probably a bug in the parser
+                // because the column is 1-indexed, this is like adding 2
+                (p.start.column + 1) / 4
+            }
+        })
         .unwrap_or_default()
 }
 
@@ -68,7 +77,7 @@ fn mdast_string(node: &Node) -> String {
         Node::List(l) => recursive_mdast_string(&l.children),
         Node::ListItem(li) => format!(
             "{}- {}{}",
-            indent(li),
+            " ".repeat(indent(li) * 4),
             match li.checked {
                 Some(true) => "[x] ",
                 Some(false) => "[ ] ",
@@ -114,7 +123,7 @@ mod tests {
     use super::*;
 
     use indoc::indoc;
-    use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_eq as pretty_assert_eq;
 
     macro_rules! test_mdast_to_markdown {
         ($($name:ident $file:expr)*) => {
@@ -124,28 +133,37 @@ mod tests {
                     let file = indoc!($file);
                     let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
                     let render = mdast_to_markdown(&ast);
-                    assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\nexpected:\n{}\nactual:\n{}", ast, stringify!($name), file, render);
+                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\nexpected:\n{}\nactual:\n{}", ast, stringify!($name), file, render);
                 }
             )*
         }
     }
 
     test_mdast_to_markdown! {
-        simple_file r#"
+        mdast_simple_file r#"
         # Heading
 
         - [ ] item 1
         - [x] item 2
         "#
 
-        nested_list r#"
+        mdast_nested_list r#"
         - [ ] item 1
             - [ ] item 1.1
             - [x] item 1.2
         - [x] item 2
         "#
 
-        multiple_headers r#"
+        mdast_deep_nested_list r#"
+        - [ ] item 1
+            - [ ] item 1.1
+                - [ ] item 1.1.1
+                - [x] item 1.1.2
+                - item
+            - [x] item 1.2
+        "#
+
+        mdast_multiple_headers r#"
         # Heading 1
 
         - [ ] item 1
@@ -155,7 +173,7 @@ mod tests {
         some text
         "#
 
-        code_block r#"
+        mdast_code_block r#"
         # Heading
 
         ```rust
@@ -171,11 +189,77 @@ mod tests {
         Here is more with ```a `` backticks inside```.
         "#
 
-        lists r#"
+        mdast_lists r#"
         # Heading
 
         - item 1
         - item 2
         "#
+    }
+
+    macro_rules! test_indent {
+        ($($name:ident $file:expr, $($indentations:expr)+,)*) => {
+            fn test_iter (items: &Vec<Node>, indentations: &Vec<usize>) {
+                for item in items.iter() {
+                    match item {
+                        Node::ListItem(li) => {
+                            let indent = indent(li);
+                            let expected_indent = indentations.get(li.position.as_ref().unwrap().start.line - 1).unwrap();
+                            println!("{}: i{} == ex{}", li.position.as_ref().unwrap().start.line, indent, expected_indent);
+                            assert_eq!(indent, *expected_indent, "expected indent {} but got {} for item position {:#?}", expected_indent, indent, li.position.as_ref().unwrap().start.column);
+                            test_iter(&li.children, indentations);
+                        },
+                        Node::List(l) => test_iter(&l.children, indentations),
+                        _ => (),
+                    }
+                }
+            }
+            $(
+                #[test]
+                fn $name() {
+                    let file = indoc!($file);
+                    let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
+                    let list = ast.children().unwrap().iter().next().unwrap();
+                    let list = match list {
+                        Node::List(l) => l,
+                        _ => panic!("expected list, got {:#?}", list),
+                    };
+                    let items = &list.children;
+                    let indentations = vec![$($indentations,)+];
+
+                    test_iter(items, &indentations);
+                }
+            )*
+        }
+    }
+
+    test_indent! {
+        indent_no_indentation r#"
+        - item 1
+        - item 2
+        "#, 0 0,
+
+        indent_one_level r#"
+        - item 1
+            - item 1.1
+        - item 2
+        "#, 0 1 0,
+
+        indent_many_levels r#"
+        - item 1
+            - item 1.1
+                - item 1.1.1
+                    - item 1.1.1.1
+                        - item
+                            - item
+        - item 2
+        "#, 0 1 2 3 4 5 0,
+
+        index_with_tabs r#"
+        - item 1
+        \t- item 1.1
+        \t\t- item 1.1.1
+        - item 2
+        "#, 0 1 2 0,
     }
 }
