@@ -99,7 +99,7 @@ fn mdast_string(node: &Node) -> String {
         Node::Emphasis(e) => format!("*{}*", recursive_mdast_string(&e.children)),
         Node::Strong(s) => format!("**{}**", recursive_mdast_string(&s.children)),
         Node::Link(l) => format!("[{}]({})", recursive_mdast_string(&l.children), l.url),
-        Node::Image(i) => format!("![]({})", i.url),
+        Node::Image(i) => format!("![{}]({})", i.alt, i.url),
         // needs to insert > at the start of each line
         Node::BlockQuote(b) => format!("> {}\n", recursive_mdast_string(&b.children)),
         Node::ThematicBreak(_) => "---\n".to_string(),
@@ -207,8 +207,10 @@ mod tests {
 
         mdast_emphasis_and_lists r#"
         *Italic*, **bold**, ***both***.
+
         1. First
         2. Second
+
         - Nested 1
         - Nested 2
         "#
@@ -216,10 +218,10 @@ mod tests {
         mdast_links r#"
         [Google](https://www.google.com)
         ![Image](https://via.placeholder.com/150)
+        ![](https://via.placeholder.com/150)
         "#
 
         mdast_headers_and_code r#"
-
         ## Headers & Code
 
         ### Header 3
