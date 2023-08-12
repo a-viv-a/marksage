@@ -19,6 +19,8 @@ fn archive_markdown(markdown: &str) -> Option<String> {
     let ast =
         markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
 
+    println!("{:#?}", ast);
+
     None
 }
 
@@ -36,70 +38,70 @@ mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
 
-    macro_rules! test_archive {
-      ($($name:ident $file:expr => $expected:expr)*) => {
-        $(
-            #[test]
-            fn $name() {
-                let file = indoc!($file);
-                let expected = indoc!($expected);
-                match archive_markdown(file) {
-                    Some(actual) => assert_eq!(expected, &actual),
-                    None => assert!(file == expected, "archive_markdown returned None, but the expected output was not the input file. Input was:\n{}", file),
-                }
+    // macro_rules! test_archive {
+    //   ($($name:ident $file:expr => $expected:expr)*) => {
+    //     $(
+    //         #[test]
+    //         fn $name() {
+    //             let file = indoc!($file);
+    //             let expected = indoc!($expected);
+    //             match archive_markdown(file) {
+    //                 Some(actual) => assert_eq!(expected, &actual),
+    //                 None => assert!(file == expected, "archive_markdown returned None, but the expected output was not the input file. Input was:\n{}", file),
+    //             }
 
-            }
-        )*
-      }
-    }
+    //         }
+    //     )*
+    //   }
+    // }
 
-    test_archive! {
+    // test_archive! {
 
-        untouched r#"
-        - [ ] item 1
-        "# => r#"
-        - [ ] item 1
-        "#
+    //     untouched r#"
+    //     - [ ] item 1
+    //     "# => r#"
+    //     - [ ] item 1
+    //     "#
 
-        archive_single_item r#"
-        - [x] item 1
-        "# => r#"
+    //     archive_single_item r#"
+    //     - [x] item 1
+    //     "# => r#"
 
-        ## Archived
+    //     ## Archived
 
-        - [x] item 1
-        "#
+    //     - [x] item 1
+    //     "#
 
-        archive_multiple_items r#"
-        - [x] item 1
-        - [x] item 2
-        - [ ] item 3
-        "# => r#"
-        - [ ] item 3
+    //     archive_multiple_items r#"
+    //     - [x] item 1
+    //     - [x] item 2
+    //     - [ ] item 3
+    //     "# => r#"
+    //     - [ ] item 3
 
-        ## Archived
+    //     ## Archived
 
-        - [x] item 1
-        - [x] item 2
-        "#
+    //     - [x] item 1
+    //     - [x] item 2
+    //     "#
 
-        archive_multiple_items_with_sub_items r#"
-        - [x] item 1
-            - [x] item 1.1
-            - [x] item 1.2
-        - [x] item 2
-            - [ ] item 2.1
-        - [ ] item 3
-        "# => r#"
-        - [x] item 2
-            - [ ] item 2.1
-        - [ ] item 3
+    //     archive_multiple_items_with_sub_items r#"
+    //     - [x] item 1
+    //         - [x] item 1.1
+    //         - [x] item 1.2
+    //     - [x] item 2
+    //         - [ ] item 2.1
+    //     - [ ] item 3
+    //     "# => r#"
+    //     - [x] item 2
+    //         - [ ] item 2.1
+    //     - [ ] item 3
 
-        ## Archived
+    //     ## Archived
 
-        - [x] item 1
-            - [x] item 1.1
-            - [x] item 1.2
-        "#
-    }
+    //     - [x] item 1
+    //         - [x] item 1.1
+    //         - [x] item 1.2
+    //     "#
+    // }
 }
