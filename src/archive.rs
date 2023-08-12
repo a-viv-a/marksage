@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::{markdown_file, util::iterate_markdown_files};
+use crate::{
+    markdown_file::{self, MdastDocument},
+    util::iterate_markdown_files,
+};
 
 lazy_static! {
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
@@ -15,21 +18,18 @@ lazy_static! {
         Regex::new(r"(?s)^(?:.*\n *)?- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
 }
 
-fn archive_markdown(markdown: &str) -> Option<String> {
-    let ast =
-        markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
-
-    println!("{:#?}", ast);
-
-    println!("{}", markdown_file::mdast_to_markdown(&ast));
+fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
+    println!("{:?}", markdown.body);
 
     None
 }
 
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
-        .filter_map(|f: crate::markdown_file::File| archive_markdown(&f.content).map(|c| (f, c)))
-        .for_each(|(f, c)| f.atomic_overwrite(&c).unwrap());
+        .map(MdastDocument::parse)
+        .filter_map(archive_markdown)
+        .map(|f| f.atomic_overwrite())
+        .for_each(Result::unwrap);
 }
 
 #[cfg(test)]

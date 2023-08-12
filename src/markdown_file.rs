@@ -2,6 +2,9 @@ use std::{fs, io, path::PathBuf};
 
 use markdown::mdast::{self, Node};
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 pub struct File {
     path: PathBuf,
     pub content: String,
@@ -12,13 +15,58 @@ impl File {
         let content = fs::read_to_string(&path)?;
         Ok(Self { path, content })
     }
+}
 
-    pub fn atomic_overwrite(self, content: &str) -> io::Result<()> {
+pub struct MdastDocument {
+    pub frontmatter: Option<String>,
+    pub body: mdast::Root,
+    path: PathBuf,
+}
+
+lazy_static! {
+    static ref FRONTMATTER: Regex = Regex::new(r"(?s)-{3}\n(.*)\n-{3}\n").unwrap();
+}
+
+impl MdastDocument {
+    /// Produce an ast and frontmatter from a markdown file
+    pub fn parse(file: File) -> MdastDocument {
+        // mdast doesn't support frontmatter, so we have to extract it manually
+
+        let frontmatter = FRONTMATTER
+            .captures(&file.content)
+            .map(|c| c.get(1).unwrap().as_str().to_string());
+
+        let body = markdown::to_mdast(
+            &file.content[frontmatter.as_ref().map_or(0, |f| f.len() + 12)..],
+            &markdown::ParseOptions::gfm(),
+        )
+        .expect("never fails with gfm");
+
+        match body {
+            Node::Root(body) => MdastDocument {
+                frontmatter,
+                body,
+                path: file.path,
+            },
+            _ => panic!("expected root node, got {:?}", body),
+        }
+    }
+
+    pub fn atomic_overwrite(self) -> io::Result<()> {
         let mut tmp_path = self.path.clone();
         tmp_path.set_extension("tmp.md");
-        fs::write(&tmp_path, content)?;
+        fs::write(&tmp_path, self.render())?;
         fs::rename(tmp_path, self.path)?;
         Ok(())
+    }
+
+    pub fn render(&self) -> String {
+        self.body
+            .children
+            .iter()
+            .map(mdast_string)
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
@@ -101,29 +149,12 @@ fn mdast_string(node: &Node) -> String {
         Node::Link(l) => format!("[{}]({})", recursive_mdast_string(&l.children), l.url),
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
         // needs to insert > at the start of each line
-        Node::BlockQuote(b) => format!("> {}\n", recursive_mdast_string(&b.children)),
+        Node::BlockQuote(b) => format!("> {}", recursive_mdast_string(&b.children)),
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
         Node::Table(t) => "TODO: table".to_string(),
         _ => panic!("Unexpected node type {:#?}", node),
     }
-}
-
-pub fn mdast_to_markdown(node: &Node) -> String {
-    assert!(
-        matches!(node, Node::Root(_)),
-        "mdast_to_markdown must be called with a Root node, not {:#?}",
-        node
-    );
-
-    node.children()
-        .map(|c| {
-            c.iter()
-                .map(mdast_string)
-                .collect::<Vec<String>>()
-                .join("\n")
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -139,10 +170,13 @@ mod tests {
                 #[test]
                 fn $name() {
                     let file = indoc!($file);
-                    let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
-                    let render = mdast_to_markdown(&ast);
+                    let mdast_document = MdastDocument::parse(File {
+                        path: PathBuf::from(""),
+                        content: file.to_string(),
+                    });
+                    let render = mdast_document.render();
                     println!("expected:\n{}\nactual:\n{}", file, render);
-                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}", ast, stringify!($name));
+                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}", mdast_document.body, stringify!($name));
                 }
             )*
         }
@@ -304,6 +338,16 @@ mod tests {
 
         [Ref][1]
         [1]: https://www.example.com
+        "#
+
+        mdast_frontmatter r#"
+        ---
+        title: "Hello, world!"
+        ---
+
+        # Heading
+
+        some content
         "#
     }
 
