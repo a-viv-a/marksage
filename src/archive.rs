@@ -1,9 +1,9 @@
-use std::{convert::identity, path::PathBuf};
+use std::path::PathBuf;
 
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::util::iterate_markdown_files;
+use crate::{markdown_file, util::iterate_markdown_files};
 
 lazy_static! {
     static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
@@ -21,13 +21,14 @@ fn archive_markdown(markdown: &str) -> Option<String> {
 
     println!("{:#?}", ast);
 
+    println!("{}", markdown_file::mdast_to_markdown(&ast));
+
     None
 }
 
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
-        .map(|f: crate::markdown_file::File| archive_markdown(&f.content).map(|c| (f, c)))
-        .filter_map(identity)
+        .filter_map(|f: crate::markdown_file::File| archive_markdown(&f.content).map(|c| (f, c)))
         .for_each(|(f, c)| f.atomic_overwrite(&c).unwrap());
 }
 

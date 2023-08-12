@@ -1,4 +1,4 @@
-use std::{convert::identity, fmt::format, fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf};
 
 use markdown::mdast::{self, Node};
 
@@ -54,7 +54,7 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     longest
 }
 
-fn recursive_mdast_string(nodes: &Vec<Node>) -> String {
+fn recursive_mdast_string(nodes: &[Node]) -> String {
     nodes
         .iter()
         .map(mdast_string)
@@ -100,10 +100,7 @@ fn mdast_string(node: &Node) -> String {
 
 pub fn mdast_to_markdown(node: &Node) -> String {
     assert!(
-        match node {
-            Node::Root(_) => true,
-            _ => false,
-        },
+        matches!(node, Node::Root(_)),
         "mdast_to_markdown must be called with a Root node, not {:#?}",
         node
     );
@@ -199,7 +196,7 @@ mod tests {
 
     macro_rules! test_indent {
         ($($name:ident $file:expr, $($indentations:expr)+,)*) => {
-            fn test_iter (items: &Vec<Node>, indentations: &Vec<usize>) {
+            fn test_iter (items: &[Node], indentations: &Vec<usize>) {
                 for item in items.iter() {
                     match item {
                         Node::ListItem(li) => {
