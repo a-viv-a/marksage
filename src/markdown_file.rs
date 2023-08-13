@@ -215,7 +215,47 @@ fn mdast_string(node: &Node, context: &Context) -> String {
             .join(""),
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
-        Node::Table(t) => "TODO: table".to_string(),
+        Node::Table(t) => {
+            let mut s = String::new();
+            let mut longest = vec![0; t.align.len()];
+            for row in &t.children {
+                if let Node::TableRow(r) = row {
+                    for (i, cell) in r.children.iter().enumerate() {
+                        if let Node::TableCell(c) = cell {
+                            longest[i] = longest[i].max(recursive_mdast_string(&c.children).len());
+                        }
+                    }
+                }
+            }
+            for (row_index, row) in t.children.iter().enumerate() {
+                if row_index == 1 {
+                    s += &format!(
+                        "| {} |\n",
+                        longest
+                            .iter()
+                            .map(|l| "-".repeat(*l))
+                            .collect::<Vec<String>>()
+                            .join(" | ")
+                    );
+                }
+                if let Node::TableRow(r) = row {
+                    for (column_index, cell) in r.children.iter().enumerate() {
+                        if let Node::TableCell(c) = cell {
+                            s += &format!(
+                                "| {}{} ",
+                                recursive_mdast_string(&c.children),
+                                " ".repeat(
+                                    longest[column_index]
+                                        - recursive_mdast_string(&c.children).len()
+                                )
+                            );
+                        }
+                    }
+                    s += "|\n";
+                }
+            }
+            s
+        }
         _ => panic!("Unexpected node type {:#?}", node),
     }
 }
@@ -358,8 +398,6 @@ mod tests {
         "#
 
         mdast_table r#"
-        # Heading
-
         | Header | Header |
         | ------ | ------ |
         | Cell   | Cell   |
