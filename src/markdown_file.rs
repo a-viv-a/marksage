@@ -309,6 +309,7 @@ mod tests {
 
     use indoc::indoc;
     use pretty_assertions::assert_eq as pretty_assert_eq;
+    use proptest::prelude::*;
 
     macro_rules! test_mdast_to_markdown {
         ($($name:ident $input:expr $(=> $expected:expr)?)*) => {
@@ -323,7 +324,7 @@ mod tests {
                         Some(indoc!($expected));
                     )?
                     let mdast_document = MdastDocument::parse(File {
-                        path: PathBuf::from(""),
+                        path: PathBuf::new(),
                         content: input.to_string(),
                     });
                     let render = mdast_document.render();
@@ -557,6 +558,17 @@ mod tests {
 
         some content
         "#
+    }
+
+    proptest! {
+        #[test]
+        fn mdast_document_render_does_not_crash(input in "\\PC*") {
+            let mdast_document = MdastDocument::parse(File {
+                path: PathBuf::new(),
+                content: input.clone(),
+            });
+            mdast_document.render();
+        }
     }
 
     macro_rules! test_indent {

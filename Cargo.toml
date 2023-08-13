@@ -16,3 +16,4 @@ walkdir = "2.3.3"
 [dev-dependencies]
 indoc = "2.0.3"
 pretty_assertions = "1.4.0"
+proptest = "1.2.0"
