@@ -255,7 +255,13 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                 "| {} |\n",
                 longest
                     .iter()
-                    .map(|l| "-".repeat(*l))
+                    .zip(t.align.iter())
+                    .map(|(len, align)| match align {
+                        mdast::AlignKind::Left => format!(":{}", "-".repeat(*len - 1)),
+                        mdast::AlignKind::Center => format!(":{}:", "-".repeat(*len - 2)),
+                        mdast::AlignKind::Right => format!("{}:", "-".repeat(*len - 1)),
+                        mdast::AlignKind::None => "-".repeat(*len),
+                    })
                     .collect::<Vec<String>>()
                     .join(" | ")
             );
@@ -465,7 +471,7 @@ mod tests {
         mdast_table_with_alignment r#"
         | Left | Center | Right |
         | :--- | :----: | ----: |
-        | foo  |  bar   |   baz |
+        | foo  | bar    | baz   |
         "#
 
         mdast_table_with_partial_alignment r#"
