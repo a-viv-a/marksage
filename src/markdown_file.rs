@@ -268,18 +268,31 @@ mod tests {
     use pretty_assertions::assert_eq as pretty_assert_eq;
 
     macro_rules! test_mdast_to_markdown {
-        ($($name:ident $file:expr)*) => {
+        ($($name:ident $input:expr $(=> $expected:expr)?)*) => {
             $(
                 #[test]
+                #[allow(unused_variables)]
                 fn $name() {
-                    let file = indoc!($file);
+                    let input = indoc!($input);
+                    let expected: Option<String> = None;
+                    $(let expected =
+                        Some(indoc!($expected));
+                    )?
                     let mdast_document = MdastDocument::parse(File {
                         path: PathBuf::from(""),
-                        content: file.to_string(),
+                        content: input.to_string(),
                     });
                     let render = mdast_document.render();
-                    println!("expected:\n{}\nactual:\n{}", file, render);
-                    pretty_assert_eq!(file, &render, "input file (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}", mdast_document.body, stringify!($name));
+                    match expected {
+                        Some(expected) => {
+                            println!("input:\n{}\nexpected:\n{}\nactual:\n{}", input, expected, render);
+                            pretty_assert_eq!(&expected, &render, "expected (left) did not match rendered markdown (right). input ast:\n{:#?}\n\ntest: {}\nexpected / render", mdast_document.body, stringify!($name));
+                        }
+                        None => {
+                            println!("expected:\n{}\nactual:\n{}", input, render);
+                            pretty_assert_eq!(input, &render, "input (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\ninput / render", mdast_document.body, stringify!($name));
+                        }
+                    }
                 }
             )*
         }
@@ -401,6 +414,18 @@ mod tests {
         | Header | Header |
         | ------ | ------ |
         | Cell   | Cell   |
+        "#
+
+        mdast_table_with_formatting r#"
+        | Header | Header |
+        | --- | --- |
+        | *Cell* | **Cell** |
+        | Cell | Cell |
+        "# => r#"
+        | Header | Header   |
+        | ------ | -------- |
+        | *Cell* | **Cell** |
+        | Cell   | Cell     |
         "#
 
         mdast_footnotes_and_auto_links r#"
