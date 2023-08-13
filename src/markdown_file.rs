@@ -1,6 +1,7 @@
 use std::{fmt::format, fs, io, path::PathBuf};
 
 use markdown::mdast::{self, Node};
+use unicode_width::UnicodeWidthStr;
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -246,7 +247,8 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                 if let Node::TableRow(r) = row {
                     for (i, cell) in r.children.iter().enumerate() {
                         if let Node::TableCell(c) = cell {
-                            longest[i] = longest[i].max(format_mdast!(&c.children).len());
+                            longest[i] = longest[i]
+                                .max(UnicodeWidthStr::width(format_mdast!(&c.children).as_str()));
                         }
                     }
                 }
@@ -276,7 +278,10 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                                 "| {}{} ",
                                 format_mdast!(&c.children),
                                 " ".repeat(
-                                    longest[column_index] - format_mdast!(&c.children).len()
+                                    longest[column_index]
+                                        - UnicodeWidthStr::width(
+                                            format_mdast!(&c.children).as_str()
+                                        )
                                 )
                             );
                         }
@@ -308,6 +313,7 @@ mod tests {
                 #[allow(unused_variables)]
                 fn $name() {
                     let input = indoc!($input);
+                    println!("input:\n{}", input);
                     let expected: Option<String> = None;
                     $(let expected =
                         Some(indoc!($expected));
@@ -319,11 +325,11 @@ mod tests {
                     let render = mdast_document.render();
                     match expected {
                         Some(expected) => {
-                            println!("input:\n{}\nexpected:\n{}\nactual:\n{}", input, expected, render);
+                            println!("expected:\n{}\nactual:\n{}", expected, render);
                             pretty_assert_eq!(&expected, &render, "expected (left) did not match rendered markdown (right). input ast:\n{:#?}\n\ntest: {}\nexpected / render", mdast_document.body, stringify!($name));
                         }
                         None => {
-                            println!("expected:\n{}\nactual:\n{}", input, render);
+                            println!("actual:\n{}", render);
                             pretty_assert_eq!(input, &render, "input (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\ninput / render", mdast_document.body, stringify!($name));
                         }
                     }
