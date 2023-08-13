@@ -221,6 +221,7 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         }
         Node::Emphasis(e) => format_mdast!(&e.children, "*{}*"),
         Node::Strong(s) => format_mdast!(&s.children, "**{}**"),
+        Node::Delete(d) => format_mdast!(&d.children, "~~{}~~"),
         Node::Link(l) => {
             let text = format_mdast!(&l.children);
             if l.url == text {
