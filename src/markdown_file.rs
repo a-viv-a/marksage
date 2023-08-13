@@ -205,7 +205,14 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         // this section needs work
         Node::Emphasis(e) => format!("*{}*", recursive_mdast_string(&e.children)),
         Node::Strong(s) => format!("**{}**", recursive_mdast_string(&s.children)),
-        Node::Link(l) => format!("[{}]({})", recursive_mdast_string(&l.children), l.url),
+        Node::Link(l) => {
+            let text = recursive_mdast_string(&l.children);
+            if l.url == text {
+                format!("<{}>", text)
+            } else {
+                format!("[{}]({})", text, l.url)
+            }
+        }
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
         // needs to insert > at the start of each line
         Node::BlockQuote(b) => recursive_mdast_string(&b.children)
@@ -428,16 +435,19 @@ mod tests {
         | Cell   | Cell     |
         "#
 
-        mdast_footnotes_and_auto_links r#"
-        ## Footnotes & Auto Links
+        mdast_auto_links r#"
+        <https://www.google.com>
+        <mailto:test@example.com>
+        "#
 
-        Footnote[^1].
-        <https://www.example.com>
+        mdast_footnotes r#"
+        Here is a footnote reference,[^1] and another.[^longnote]
 
-        ## References & Raw HTML
+        [^1]: Here is the footnote.
 
-        [Ref][1]
-        [1]: https://www.example.com
+        [^longnote]: Here's one with multiple blocks.
+
+            Stuff here.
         "#
 
         mdast_frontmatter r#"
