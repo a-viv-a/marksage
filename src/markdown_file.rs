@@ -307,6 +307,16 @@ mod tests {
         2. Second
         "#
 
+        mdast_mixed_lists r#"
+        1. First
+        2. Second
+            - item 1
+            - item 2
+        3. Third
+
+        - item 1
+        "#
+
         mdast_links r#"
         [Google](https://www.google.com)
         ![Image](https://via.placeholder.com/150)
