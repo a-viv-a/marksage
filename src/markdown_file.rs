@@ -157,7 +157,11 @@ fn mdast_string(node: &Node) -> String {
         Node::Link(l) => format!("[{}]({})", recursive_mdast_string(&l.children), l.url),
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
         // needs to insert > at the start of each line
-        Node::BlockQuote(b) => format!("> {}", recursive_mdast_string(&b.children)),
+        Node::BlockQuote(b) => recursive_mdast_string(&b.children)
+            .lines()
+            .map(|l| format!("> {}\n", l))
+            .collect::<Vec<String>>()
+            .join(""),
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
         Node::Table(t) => "TODO: table".to_string(),
@@ -278,7 +282,6 @@ mod tests {
         "#
 
         mdast_block_quote_thematic_break r#"
-
         > Quote
         > Multi-line.
 
