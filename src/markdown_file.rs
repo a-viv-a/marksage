@@ -463,6 +463,17 @@ mod tests {
         | foo  |  bar   |   baz |
         "#
 
+        mdast_table_with_partial_alignment r#"
+        | Left | None |
+        | :--- | ---- |
+        | foo  | bar  |
+        "#
+
+        mdast_table_with_zero_data r#"
+        | Header | Header |
+        | ------ | ------ |
+        "#
+
         mdast_auto_links r#"
         <https://www.google.com>
         <mailto:test@example.com>
