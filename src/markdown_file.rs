@@ -451,6 +451,18 @@ mod tests {
         | Cell   | Cell     |
         "#
 
+        mdast_table_with_unicode r#"
+        | Foo | Bar |
+        | --- | --- |
+        | ƒoo | bar |
+        "#
+
+        mdast_table_with_alignment r#"
+        | Left | Center | Right |
+        | :--- | :----: | ----: |
+        | foo  |  bar   |   baz |
+        "#
+
         mdast_auto_links r#"
         <https://www.google.com>
         <mailto:test@example.com>
