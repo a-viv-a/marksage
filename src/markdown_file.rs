@@ -495,6 +495,36 @@ mod tests {
         | ------ | ------ |
         "#
 
+        mdast_jagged_table_two_columns r#"
+        | Header | Header |
+        | --- | --- |
+        | Cell |
+        | Cell | Cell |
+        | Cell | Cell | Cell |
+        "# => r#"
+        | Header | Header |
+        | ------ | ------ |
+        | Cell   |
+        | Cell   | Cell   |
+        | Cell   | Cell   |
+        "#
+
+        mdast_jagged_table_three_columns r#"
+        | H | Hah | H |
+        | --- | --- | --- |
+        | C |
+        | C | C |
+        | C | C | C |
+        | C | C | C | C |
+        "# => r#"
+        | H | Hah | H |
+        | - | --- | - |
+        | C |
+        | C | C   |
+        | C | C   | C |
+        | C | C   | C |
+        "#
+
         mdast_auto_links r#"
         <https://www.google.com>
         <mailto:test@example.com>
