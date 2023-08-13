@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::{fmt::format, fs, io, path::PathBuf};
 
 use markdown::mdast::{self, Node};
@@ -243,12 +245,19 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         Node::Table(t) => {
             let mut s = String::new();
             let mut longest = vec![0; t.align.len()];
-            for row in &t.children {
+            // A 1d vector of (Cell render, width) pairs, omitting overrun cells
+            let mut table_skeleton: Vec<Option<(String, usize)>> =
+                vec![None; t.children.len() * t.align.len()];
+
+            for (row_index, row) in t.children.iter().enumerate() {
                 if let Node::TableRow(r) = row {
-                    for (i, cell) in r.children.iter().enumerate() {
+                    for (column_index, cell) in r.children.iter().enumerate().take(t.align.len()) {
                         if let Node::TableCell(c) = cell {
-                            longest[i] = longest[i]
-                                .max(UnicodeWidthStr::width(format_mdast!(&c.children).as_str()));
+                            let cell_string = format_mdast!(&c.children);
+                            let cell_width = UnicodeWidthStr::width(cell_string.as_str());
+                            longest[column_index] = longest[column_index].max(cell_width);
+                            table_skeleton[row_index * t.align.len() + column_index] =
+                                Some((cell_string, cell_width));
                         }
                     }
                 }
@@ -267,28 +276,23 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                     .collect::<Vec<String>>()
                     .join(" | ")
             );
-            for (row_index, row) in t.children.iter().enumerate() {
-                if row_index == 1 {
-                    s += delim
+
+            for (i, cell) in table_skeleton.iter().enumerate() {
+                if i != 0 && i <= t.align.len() && i % t.align.len() == 0 {
+                    s += delim;
                 }
-                if let Node::TableRow(r) = row {
-                    for (column_index, cell) in r.children.iter().enumerate() {
-                        if let Node::TableCell(c) = cell {
-                            s += &format!(
-                                "| {}{} ",
-                                format_mdast!(&c.children),
-                                " ".repeat(
-                                    longest[column_index]
-                                        - UnicodeWidthStr::width(
-                                            format_mdast!(&c.children).as_str()
-                                        )
-                                )
-                            );
-                        }
-                    }
+                if let Some((cell_string, cell_width)) = cell {
+                    s += &format!(
+                        "| {}{} ",
+                        cell_string,
+                        " ".repeat(longest[i % t.align.len()] - cell_width)
+                    );
+                }
+                if i % t.align.len() == t.align.len() - 1 {
                     s += "|\n";
                 }
             }
+
             // ensure empty table keep the delim
             if t.children.len() == 1 {
                 s += delim
