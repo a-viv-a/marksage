@@ -251,16 +251,17 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                     }
                 }
             }
+            let delim = &format!(
+                "| {} |\n",
+                longest
+                    .iter()
+                    .map(|l| "-".repeat(*l))
+                    .collect::<Vec<String>>()
+                    .join(" | ")
+            );
             for (row_index, row) in t.children.iter().enumerate() {
                 if row_index == 1 {
-                    s += &format!(
-                        "| {} |\n",
-                        longest
-                            .iter()
-                            .map(|l| "-".repeat(*l))
-                            .collect::<Vec<String>>()
-                            .join(" | ")
-                    );
+                    s += delim
                 }
                 if let Node::TableRow(r) = row {
                     for (column_index, cell) in r.children.iter().enumerate() {
@@ -276,6 +277,10 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                     }
                     s += "|\n";
                 }
+            }
+            // ensure empty table keep the delim
+            if t.children.len() == 1 {
+                s += delim
             }
             s
         }
