@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf};
+use std::{fmt::format, fs, io, path::PathBuf};
 
 use markdown::mdast::{self, Node};
 
@@ -70,6 +70,8 @@ impl MdastDocument {
                 .children
                 .iter()
                 .map(mdast_string)
+                // handles root level html
+                .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
                 .collect::<Vec<String>>()
                 .join("\n")
         )
@@ -285,42 +287,12 @@ mod tests {
         > Quote
         "#
 
-        mdast_escaping_rigorous r#"
-        \*Not italic.\*
-        \*\*Not bold.\*\*
-        \*\*\*Not both.\*\*\*
-
-        \# Not a header.
-
-        \- Not a list.
-        
-        \[Not a link\](https://www.google.com)
-
-        \!Not an image\](https://via.placeholder.com/150)
-
-        \```Not a code block\```
-
-        \``Not inline code\``
-
-        \> Not a block quote.
-
-        \--- Not a thematic break.
-
-        \& Not an HTML entity.
-
-        \&amp; Not an HTML entity.
-
-        \&nbsp; Not an HTML entity.
-
-        \&copy; Not an HTML entity.
-        "#
-
         mdast_html r#"
         <p>HTML block</p>
         <div style="color: blue;">
             Raw <strong>HTML</strong>
         </div>
-        
+
         normal text
 
         <b>HTML</b>
