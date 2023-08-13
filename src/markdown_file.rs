@@ -152,14 +152,17 @@ fn recursive_contextual_mdast_string<'a>(
 }
 
 macro_rules! format_mdast {
-    ($mdast:expr, $template:expr) => {
-        format!($template, recursive_mdast_string($mdast, ""))
+    (sep=$sep:expr; s = $mdast:expr, $template:expr, $($arg:expr),*) => {
+        format!($template, $($arg),*, s = recursive_mdast_string($mdast, $sep))
     };
-    ($mdast:expr) => {
-        recursive_mdast_string($mdast, "")
+    (sep=$sep:expr; $mdast:expr, $template:expr) => {
+        format!($template, recursive_mdast_string($mdast, $sep))
     };
-    (s = $mdast:expr, $template:expr, $($arg:expr),*) => {
-        format!($template, $($arg),*, s = recursive_mdast_string($mdast, ""))
+    (sep=$sep:expr; $mdast:expr) => {
+        recursive_mdast_string($mdast, $sep)
+    };
+    ($($tail:tt)+) => {
+        format_mdast!(sep=""; $($tail)*)
     };
 }
 
@@ -232,7 +235,10 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
         Node::FootnoteReference(f) => format!("[^{}]", f.identifier),
-        Node::FootnoteDefinition(f) => format_mdast!(s = &f.children, "[^{}]: {s}\n", f.identifier),
+        Node::FootnoteDefinition(f) => {
+            // FIXME: this would fail if the footnote contains a list
+            format_mdast!(sep = "\n    "; s = &f.children, "[^{}]: {s}", f.identifier)
+        }
         Node::Table(t) => {
             let mut s = String::new();
             let mut longest = vec![0; t.align.len()];
@@ -451,13 +457,21 @@ mod tests {
         "#
 
         mdast_footnotes r#"
-        Here is a footnote reference,[^1] and another.[^longnote]
+        Here is a footnote reference,[^1] and another.[^long]
+
+        This one is [^super]!
 
         [^1]: Here is the footnote.
 
-        [^longnote]: Here's one with multiple blocks.
+        [^long]: Here's one with multiple blocks.
 
             Stuff here.
+
+        [^super]: Here's one with multiple blocks.
+
+            Stuff here.
+
+            More stuff here.
         "#
 
         mdast_frontmatter r#"
