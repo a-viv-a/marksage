@@ -27,6 +27,24 @@ lazy_static! {
     static ref FRONTMATTER: Regex = Regex::new(r"(?s)-{3}\n(.*)\n-{3}\n").unwrap();
 }
 
+macro_rules! mdast_string {
+    (|n|) => {
+        |n| mdast_string(n, &Context::None)
+    };
+    (|n, c|) => {
+        |(n, c)| mdast_string(n, c)
+    };
+    (|n, &c|) => {
+        |(n, c)| mdast_string(n, &c)
+    };
+    ($node:expr) => {
+        mdast_string($node, &Context::None)
+    };
+    ($node:expr, $context:expr) => {
+        mdast_string($node, &$context)
+    };
+}
+
 impl MdastDocument {
     /// Produce an ast and frontmatter from a markdown file
     pub fn parse(file: File) -> MdastDocument {
@@ -69,7 +87,7 @@ impl MdastDocument {
             self.body
                 .children
                 .iter()
-                .map(mdast_string)
+                .map(mdast_string!(|n|))
                 // handles root level html
                 .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
                 .collect::<Vec<String>>()
@@ -110,15 +128,30 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     longest
 }
 
+enum Context {
+    ListIndex(u32),
+    None,
+}
+
 fn recursive_mdast_string(nodes: &[Node]) -> String {
     nodes
         .iter()
-        .map(mdast_string)
+        .map(mdast_string!(|n|))
         .collect::<Vec<String>>()
         .join("")
 }
 
-fn mdast_string(node: &Node) -> String {
+fn recursive_contextual_mdast_string<'a>(
+    nodes: impl IntoIterator<Item = (&'a Node, Context)>,
+) -> String {
+    nodes
+        .into_iter()
+        .map(mdast_string!(|n, &c|))
+        .collect::<Vec<String>>()
+        .join("")
+}
+
+fn mdast_string(node: &Node, context: &Context) -> String {
     match node {
         Node::Root(_) => recursive_mdast_string(node.children().unwrap()),
         Node::Heading(heading) => {
@@ -130,10 +163,28 @@ fn mdast_string(node: &Node) -> String {
         }
         Node::Text(t) => t.value.clone(),
         Node::Paragraph(p) => format!("{}\n", recursive_mdast_string(&p.children)),
-        Node::List(l) => recursive_mdast_string(&l.children),
+        Node::List(l) => match l.start {
+            None => recursive_mdast_string(&l.children),
+            Some(start) => {
+                let mut i = start;
+                let mut inc = || {
+                    let old = i;
+                    i += 1;
+                    old
+                };
+                recursive_contextual_mdast_string(l.children.iter().map(|n| match n {
+                    Node::ListItem(_) => (n, Context::ListIndex(inc())),
+                    _ => (n, Context::None),
+                }))
+            }
+        },
         Node::ListItem(li) => format!(
-            "{}- {}{}",
+            "{}{} {}{}",
             " ".repeat(indent(li) * 4),
+            match context {
+                Context::ListIndex(i) => format!("{}.", i),
+                Context::None => "-".to_string(),
+            },
             match li.checked {
                 Some(true) => "[x] ",
                 Some(false) => "[ ] ",
@@ -251,14 +302,9 @@ mod tests {
         - item 2
         "#
 
-        mdast_emphasis_and_lists r#"
-        *Italic*, **bold**, ***both***.
-
+        mdast_numbered_list r#"
         1. First
         2. Second
-
-        - Nested 1
-        - Nested 2
         "#
 
         mdast_links r#"
@@ -302,11 +348,11 @@ mod tests {
         "#
 
         mdast_table r#"
+        # Heading
 
         | Header | Header |
         | ------ | ------ |
         | Cell   | Cell   |
-
         "#
 
         mdast_footnotes_and_auto_links r#"
