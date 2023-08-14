@@ -113,35 +113,10 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     longest
 }
 
-// #[derive(Default)]
-// struct Context {
-//     list_index: Option<u32>,
-//     list_indent: Option<usize>,
-// }
-
-macro_rules! Context {
-    ($($field:ident $(shallow)?: $type:ty),*) => {
-        #[derive(Copy, Clone, Default)]
-        struct Context {
-            $(pub $field: Option<$type>),*
-        }
-        impl Context {
-            paste! {
-                $(
-                    fn [<with_ $field>](&self, $field: $type) -> Self {
-                        let mut new = *self;
-                        new.$field = Some($field);
-                        new
-                    }
-                )*
-            }
-        }
-    }
-}
-
-Context! {
-    list_index shallow: u32,
-    list_indent: usize
+#[derive(Default, Clone, Copy)]
+struct Context {
+    pub list_index: Option<u32>,
+    pub list_indent: Option<usize>,
 }
 
 fn recursive_mdast_string(ctx: Context, nodes: &[Node], sep: &str) -> String {
@@ -169,9 +144,6 @@ macro_rules! format_mdast {
     ($ctx:ident sep=$sep:expr; $mdast:expr, $template:expr) => {
         format!($template, recursive_mdast_string($ctx, $mdast, $sep))
     };
-    ($ctx:ident sep=$sep:expr; $mdast:expr) => {
-        recursive_mdast_string($ctx, $mdast, $sep)
-    };
     ($ctx:ident; $($tail:tt)+) => {
         format_mdast!($ctx sep=""; $($tail)*)
     };
@@ -179,18 +151,25 @@ macro_rules! format_mdast {
 
 fn mdast_string(node: &Node, ctx: Context) -> String {
     match node {
-        Node::Root(_) => format_mdast!(ctx; node.children().unwrap()),
+        Node::Root(_) => recursive_mdast_string(ctx, node.children().unwrap(), ""),
         Node::Heading(heading) => {
             format!(
                 "{} {}\n",
                 "#".repeat(heading.depth as usize),
-                format_mdast!(ctx; node.children().unwrap())
+                recursive_mdast_string(ctx, node.children().unwrap(), "")
             )
         }
         Node::Text(t) => t.value.clone(),
         Node::Paragraph(p) => format_mdast!(ctx; &p.children, "{}\n"),
         Node::List(l) => match l.start {
-            None => format_mdast!(ctx; &l.children),
+            None => recursive_mdast_string(
+                Context {
+                    list_index: None,
+                    ..ctx
+                },
+                &l.children,
+                "",
+            ),
             Some(start) => {
                 let mut i = start;
                 let mut inc = || {
@@ -199,8 +178,20 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     old
                 };
                 recursive_contextual_mdast_string(l.children.iter().map(|n| match n {
-                    Node::ListItem(_) => (n, ctx.with_list_index(inc())),
-                    _ => (n, ctx),
+                    Node::ListItem(_) => (
+                        n,
+                        Context {
+                            list_index: Some(inc()),
+                            ..ctx
+                        },
+                    ),
+                    _ => (
+                        n,
+                        Context {
+                            list_index: None,
+                            ..ctx
+                        },
+                    ),
                 }))
             }
         },
@@ -216,7 +207,14 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                 Some(false) => "[ ] ",
                 None => "",
             },
-            format_mdast!(ctx; &li.children)
+            recursive_mdast_string(
+                Context {
+                    list_index: None,
+                    ..ctx
+                },
+                &li.children,
+                ""
+            )
         ),
         Node::Code(c) => format!(
             "```{}\n{}\n```\n",
@@ -232,7 +230,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         Node::Delete(d) => format_mdast!(ctx; &d.children, "~~{}~~"),
         Node::Break(_) => "\n".to_string(),
         Node::Link(l) => {
-            let text = format_mdast!(ctx; &l.children);
+            let text = recursive_mdast_string(ctx, &l.children, "");
             if l.url == text {
                 format!("<{}>", text)
             } else {
@@ -240,7 +238,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
             }
         }
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
-        Node::BlockQuote(b) => format_mdast!(ctx; &b.children)
+        Node::BlockQuote(b) => recursive_mdast_string(ctx, &b.children, "")
             .lines()
             .map(|l| format!("> {}\n", l))
             .collect::<Vec<String>>()
@@ -263,7 +261,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                 if let Node::TableRow(r) = row {
                     for (column_index, cell) in r.children.iter().enumerate().take(t.align.len()) {
                         if let Node::TableCell(c) = cell {
-                            let cell_string = format_mdast!(ctx; &c.children);
+                            let cell_string = recursive_mdast_string(ctx, &c.children, "");
                             let cell_width = UnicodeWidthStr::width(cell_string.as_str());
                             longest[column_index] = longest[column_index].max(cell_width);
                             table_skeleton[row_index * t.align.len() + column_index] =
