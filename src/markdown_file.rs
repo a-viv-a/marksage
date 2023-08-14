@@ -81,22 +81,6 @@ impl MdastDocument {
     }
 }
 
-fn indent(li: &mdast::ListItem) -> usize {
-    li.position
-        .as_ref()
-        .map(|p| {
-            if p.start.column == 1 {
-                0
-            } else {
-                // this makes no sense, but works with the parser
-                // it's probably a bug in the parser
-                // because the column is 1-indexed, this is like adding 2
-                (p.start.column + 1) / 4
-            }
-        })
-        .unwrap_or_default()
-}
-
 fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     let mut longest = 0;
     let mut count = 0;
@@ -161,43 +145,49 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         }
         Node::Text(t) => t.value.clone(),
         Node::Paragraph(p) => format_mdast!(ctx; &p.children, "{}\n"),
-        Node::List(l) => match l.start {
-            None => recursive_mdast_string(
-                Context {
-                    list_index: None,
-                    ..ctx
-                },
-                &l.children,
-                "",
-            ),
-            Some(start) => {
-                let mut i = start;
-                let mut inc = || {
-                    let old = i;
-                    i += 1;
-                    old
-                };
-                recursive_contextual_mdast_string(l.children.iter().map(|n| match n {
-                    Node::ListItem(_) => (
-                        n,
-                        Context {
-                            list_index: Some(inc()),
-                            ..ctx
-                        },
-                    ),
-                    _ => (
-                        n,
-                        Context {
-                            list_index: None,
-                            ..ctx
-                        },
-                    ),
-                }))
+        Node::List(l) => {
+            let list_indent = Some(ctx.list_indent.map_or(0, |i| i + 1));
+            match l.start {
+                None => recursive_mdast_string(
+                    Context {
+                        list_index: None,
+                        list_indent,
+                        ..ctx
+                    },
+                    &l.children,
+                    "",
+                ),
+                Some(start) => {
+                    let mut i = start;
+                    let mut inc = || {
+                        let old = i;
+                        i += 1;
+                        old
+                    };
+                    recursive_contextual_mdast_string(l.children.iter().map(|n| match n {
+                        Node::ListItem(_) => (
+                            n,
+                            Context {
+                                list_index: Some(inc()),
+                                list_indent,
+                                ..ctx
+                            },
+                        ),
+                        _ => (
+                            n,
+                            Context {
+                                list_index: None,
+                                list_indent,
+                                ..ctx
+                            },
+                        ),
+                    }))
+                }
             }
-        },
+        }
         Node::ListItem(li) => format!(
             "{}{} {}{}",
-            " ".repeat(indent(li) * 4),
+            " ".repeat(ctx.list_indent.unwrap_or(0) * 4),
             match ctx.list_index {
                 Some(i) => format!("{}.", i),
                 None => "-".to_string(),
@@ -247,7 +237,6 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         Node::Html(h) => h.value.clone(),
         Node::FootnoteReference(f) => format!("[^{}]", f.identifier),
         Node::FootnoteDefinition(f) => {
-            // FIXME: this would fail if the footnote contains a list
             format_mdast!(ctx sep = "\n    "; s = &f.children, "[^{}]: {s}", f.identifier)
         }
         Node::Table(t) => {
@@ -580,71 +569,5 @@ mod tests {
             });
             mdast_document.render();
         }
-    }
-
-    macro_rules! test_indent {
-        ($($name:ident $file:expr, $($indentations:expr)+,)*) => {
-            fn test_iter (items: &[Node], indentations: &Vec<usize>) {
-                for item in items.iter() {
-                    match item {
-                        Node::ListItem(li) => {
-                            let indent = indent(li);
-                            let expected_indent = indentations.get(li.position.as_ref().unwrap().start.line - 1).unwrap();
-                            println!("{}: i{} == ex{}", li.position.as_ref().unwrap().start.line, indent, expected_indent);
-                            assert_eq!(indent, *expected_indent, "expected indent {} but got {} for item position {:#?}", expected_indent, indent, li.position.as_ref().unwrap().start.column);
-                            test_iter(&li.children, indentations);
-                        },
-                        Node::List(l) => test_iter(&l.children, indentations),
-                        _ => (),
-                    }
-                }
-            }
-            $(
-                #[test]
-                fn $name() {
-                    let file = indoc!($file);
-                    let ast = markdown::to_mdast(file, &markdown::ParseOptions::gfm()).expect("never fails with gfm");
-                    let list = ast.children().unwrap().iter().next().unwrap();
-                    let list = match list {
-                        Node::List(l) => l,
-                        _ => panic!("expected list, got {:#?}", list),
-                    };
-                    let items = &list.children;
-                    let indentations = vec![$($indentations,)+];
-
-                    test_iter(items, &indentations);
-                }
-            )*
-        }
-    }
-
-    test_indent! {
-        indent_no_indentation r#"
-        - item 1
-        - item 2
-        "#, 0 0,
-
-        indent_one_level r#"
-        - item 1
-            - item 1.1
-        - item 2
-        "#, 0 1 0,
-
-        indent_many_levels r#"
-        - item 1
-            - item 1.1
-                - item 1.1.1
-                    - item 1.1.1.1
-                        - item
-                            - item
-        - item 2
-        "#, 0 1 2 3 4 5 0,
-
-        index_with_tabs r#"
-        - item 1
-        \t- item 1.1
-        \t\t- item 1.1.1
-        - item 2
-        "#, 0 1 2 0,
     }
 }
