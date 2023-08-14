@@ -237,7 +237,20 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         Node::Html(h) => h.value.clone(),
         Node::FootnoteReference(f) => format!("[^{}]", f.identifier),
         Node::FootnoteDefinition(f) => {
-            format_mdast!(ctx sep = "\n    "; s = &f.children, "[^{}]: {s}", f.identifier)
+            format!(
+                "[^{}]: {}",
+                f.identifier,
+                &f.children
+                    .iter()
+                    .enumerate()
+                    .map(|(i, n)| mdast_string(n, ctx)
+                        .lines()
+                        .map(|l| format!("{}{}\n", if i == 0 { "" } else { "    " }, l))
+                        .collect::<Vec<String>>()
+                        .join(""))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            )
         }
         Node::Table(t) => {
             let mut s = String::new();
