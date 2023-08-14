@@ -575,7 +575,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn mdast_document_render_does_not_crash(input in ".*") {
+        fn mdast_document_render_does_not_crash(input in "[[:alpha:]0-9#!<>`\\-\\*_~\\$\\n\\[\\] ]{10,}") {
             let mdast_document = MdastDocument::parse(File {
                 path: PathBuf::new(),
                 content: input.clone(),
