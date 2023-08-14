@@ -222,6 +222,7 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         Node::Emphasis(e) => format_mdast!(&e.children, "*{}*"),
         Node::Strong(s) => format_mdast!(&s.children, "**{}**"),
         Node::Delete(d) => format_mdast!(&d.children, "~~{}~~"),
+        Node::Break(_) => "\n".to_string(),
         Node::Link(l) => {
             let text = format_mdast!(&l.children);
             if l.url == text {
@@ -563,7 +564,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn mdast_document_render_does_not_crash(input in "\\PC*") {
+        fn mdast_document_render_does_not_crash(input in ".*") {
             let mdast_document = MdastDocument::parse(File {
                 path: PathBuf::new(),
                 content: input.clone(),
