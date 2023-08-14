@@ -72,7 +72,7 @@ impl MdastDocument {
             self.body
                 .children
                 .iter()
-                .map(|n| mdast_string(n, &Context::default()))
+                .map(|n| mdast_string(n, Context::default()))
                 // handles root level html
                 .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
                 .collect::<Vec<String>>()
@@ -120,8 +120,8 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
 // }
 
 macro_rules! Context {
-    ($($field:ident: $type:ty),*) => {
-        #[derive(Clone, Default)]
+    ($($field:ident $(shallow)?: $type:ty),*) => {
+        #[derive(Copy, Clone, Default)]
         struct Context {
             $(pub $field: Option<$type>),*
         }
@@ -129,7 +129,7 @@ macro_rules! Context {
             paste! {
                 $(
                     fn [<with_ $field>](&self, $field: $type) -> Self {
-                        let mut new = self.clone();
+                        let mut new = *self;
                         new.$field = Some($field);
                         new
                     }
@@ -140,11 +140,11 @@ macro_rules! Context {
 }
 
 Context! {
-    list_index: u32,
+    list_index shallow: u32,
     list_indent: usize
 }
 
-fn recursive_mdast_string(ctx: &Context, nodes: &[Node], sep: &str) -> String {
+fn recursive_mdast_string(ctx: Context, nodes: &[Node], sep: &str) -> String {
     nodes
         .iter()
         .map(|n| mdast_string(n, ctx))
@@ -153,7 +153,7 @@ fn recursive_mdast_string(ctx: &Context, nodes: &[Node], sep: &str) -> String {
 }
 
 fn recursive_contextual_mdast_string<'a>(
-    nodes: impl IntoIterator<Item = (&'a Node, &'a Context)>,
+    nodes: impl IntoIterator<Item = (&'a Node, Context)>,
 ) -> String {
     nodes
         .into_iter()
@@ -177,7 +177,7 @@ macro_rules! format_mdast {
     };
 }
 
-fn mdast_string(node: &Node, ctx: &Context) -> String {
+fn mdast_string(node: &Node, ctx: Context) -> String {
     match node {
         Node::Root(_) => format_mdast!(ctx; node.children().unwrap()),
         Node::Heading(heading) => {
@@ -207,7 +207,7 @@ fn mdast_string(node: &Node, ctx: &Context) -> String {
         Node::ListItem(li) => format!(
             "{}{} {}{}",
             " ".repeat(indent(li) * 4),
-            match ctx.list_indent {
+            match ctx.list_index {
                 Some(i) => format!("{}.", i),
                 None => "-".to_string(),
             },
