@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::{fmt::format, fs, io, path::PathBuf};
 
-use markdown::mdast::{self, Node};
-use unicode_width::UnicodeWidthStr;
-
 use lazy_static::lazy_static;
+use markdown::mdast::{self, Node};
+use paste::paste;
 use regex::Regex;
+use unicode_width::UnicodeWidthStr;
 
 pub struct File {
     path: PathBuf,
@@ -28,24 +28,6 @@ pub struct MdastDocument {
 
 lazy_static! {
     static ref FRONTMATTER: Regex = Regex::new(r"(?s)-{3}\n(.*)\n-{3}\n").unwrap();
-}
-
-macro_rules! mdast_string {
-    (|n|) => {
-        |n| mdast_string(n, &Context::None)
-    };
-    (|n, c|) => {
-        |(n, c)| mdast_string(n, c)
-    };
-    (|n, &c|) => {
-        |(n, c)| mdast_string(n, &c)
-    };
-    ($node:expr) => {
-        mdast_string($node, &Context::None)
-    };
-    ($node:expr, $context:expr) => {
-        mdast_string($node, &$context)
-    };
 }
 
 impl MdastDocument {
@@ -90,7 +72,7 @@ impl MdastDocument {
             self.body
                 .children
                 .iter()
-                .map(mdast_string!(|n|))
+                .map(|n| mdast_string(n, &Context::default()))
                 // handles root level html
                 .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
                 .collect::<Vec<String>>()
@@ -131,58 +113,84 @@ fn count_longest_sequential_chars(s: &str, c: char) -> usize {
     longest
 }
 
-enum Context {
-    ListIndex(u32),
-    None,
+// #[derive(Default)]
+// struct Context {
+//     list_index: Option<u32>,
+//     list_indent: Option<usize>,
+// }
+
+macro_rules! Context {
+    ($($field:ident: $type:ty),*) => {
+        #[derive(Clone, Default)]
+        struct Context {
+            $(pub $field: Option<$type>),*
+        }
+        impl Context {
+            paste! {
+                $(
+                    fn [<with_ $field>](&self, $field: $type) -> Self {
+                        let mut new = self.clone();
+                        new.$field = Some($field);
+                        new
+                    }
+                )*
+            }
+        }
+    }
 }
 
-fn recursive_mdast_string(nodes: &[Node], sep: &str) -> String {
+Context! {
+    list_index: u32,
+    list_indent: usize
+}
+
+fn recursive_mdast_string(ctx: &Context, nodes: &[Node], sep: &str) -> String {
     nodes
         .iter()
-        .map(mdast_string!(|n|))
+        .map(|n| mdast_string(n, ctx))
         .collect::<Vec<String>>()
         .join(sep)
 }
 
 fn recursive_contextual_mdast_string<'a>(
-    nodes: impl IntoIterator<Item = (&'a Node, Context)>,
+    nodes: impl IntoIterator<Item = (&'a Node, &'a Context)>,
 ) -> String {
     nodes
         .into_iter()
-        .map(mdast_string!(|n, &c|))
+        .map(|(n, ctx)| mdast_string(n, ctx))
         .collect::<Vec<String>>()
         .join("")
 }
 
 macro_rules! format_mdast {
-    (sep=$sep:expr; s = $mdast:expr, $template:expr, $($arg:expr),*) => {
-        format!($template, $($arg),*, s = recursive_mdast_string($mdast, $sep))
+    ($ctx:ident sep=$sep:expr; s = $mdast:expr, $template:expr, $($arg:expr),*) => {
+        format!($template, $($arg),*, s = recursive_mdast_string($ctx, $mdast, $sep))
     };
-    (sep=$sep:expr; $mdast:expr, $template:expr) => {
-        format!($template, recursive_mdast_string($mdast, $sep))
+    ($ctx:ident sep=$sep:expr; $mdast:expr, $template:expr) => {
+        format!($template, recursive_mdast_string($ctx, $mdast, $sep))
     };
-    (sep=$sep:expr; $mdast:expr) => {
-        recursive_mdast_string($mdast, $sep)
+    ($ctx:ident sep=$sep:expr; $mdast:expr) => {
+        recursive_mdast_string($ctx, $mdast, $sep)
     };
-    ($($tail:tt)+) => {
-        format_mdast!(sep=""; $($tail)*)
+    ($ctx:ident; $($tail:tt)+) => {
+        format_mdast!($ctx sep=""; $($tail)*)
     };
 }
 
-fn mdast_string(node: &Node, context: &Context) -> String {
+fn mdast_string(node: &Node, ctx: &Context) -> String {
     match node {
-        Node::Root(_) => format_mdast!(node.children().unwrap()),
+        Node::Root(_) => format_mdast!(ctx; node.children().unwrap()),
         Node::Heading(heading) => {
             format!(
                 "{} {}\n",
                 "#".repeat(heading.depth as usize),
-                format_mdast!(node.children().unwrap())
+                format_mdast!(ctx; node.children().unwrap())
             )
         }
         Node::Text(t) => t.value.clone(),
-        Node::Paragraph(p) => format_mdast!(&p.children, "{}\n"),
+        Node::Paragraph(p) => format_mdast!(ctx; &p.children, "{}\n"),
         Node::List(l) => match l.start {
-            None => format_mdast!(&l.children),
+            None => format_mdast!(ctx; &l.children),
             Some(start) => {
                 let mut i = start;
                 let mut inc = || {
@@ -191,24 +199,24 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                     old
                 };
                 recursive_contextual_mdast_string(l.children.iter().map(|n| match n {
-                    Node::ListItem(_) => (n, Context::ListIndex(inc())),
-                    _ => (n, Context::None),
+                    Node::ListItem(_) => (n, ctx.with_list_index(inc())),
+                    _ => (n, ctx),
                 }))
             }
         },
         Node::ListItem(li) => format!(
             "{}{} {}{}",
             " ".repeat(indent(li) * 4),
-            match context {
-                Context::ListIndex(i) => format!("{}.", i),
-                Context::None => "-".to_string(),
+            match ctx.list_indent {
+                Some(i) => format!("{}.", i),
+                None => "-".to_string(),
             },
             match li.checked {
                 Some(true) => "[x] ",
                 Some(false) => "[ ] ",
                 None => "",
             },
-            format_mdast!(&li.children)
+            format_mdast!(ctx; &li.children)
         ),
         Node::Code(c) => format!(
             "```{}\n{}\n```\n",
@@ -219,12 +227,12 @@ fn mdast_string(node: &Node, context: &Context) -> String {
             let backtick = "`".repeat(count_longest_sequential_chars(&c.value, '`') + 1);
             format!("{}{}{}", backtick, c.value, backtick)
         }
-        Node::Emphasis(e) => format_mdast!(&e.children, "*{}*"),
-        Node::Strong(s) => format_mdast!(&s.children, "**{}**"),
-        Node::Delete(d) => format_mdast!(&d.children, "~~{}~~"),
+        Node::Emphasis(e) => format_mdast!(ctx; &e.children, "*{}*"),
+        Node::Strong(s) => format_mdast!(ctx; &s.children, "**{}**"),
+        Node::Delete(d) => format_mdast!(ctx; &d.children, "~~{}~~"),
         Node::Break(_) => "\n".to_string(),
         Node::Link(l) => {
-            let text = format_mdast!(&l.children);
+            let text = format_mdast!(ctx; &l.children);
             if l.url == text {
                 format!("<{}>", text)
             } else {
@@ -232,7 +240,7 @@ fn mdast_string(node: &Node, context: &Context) -> String {
             }
         }
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
-        Node::BlockQuote(b) => format_mdast!(&b.children)
+        Node::BlockQuote(b) => format_mdast!(ctx; &b.children)
             .lines()
             .map(|l| format!("> {}\n", l))
             .collect::<Vec<String>>()
@@ -242,7 +250,7 @@ fn mdast_string(node: &Node, context: &Context) -> String {
         Node::FootnoteReference(f) => format!("[^{}]", f.identifier),
         Node::FootnoteDefinition(f) => {
             // FIXME: this would fail if the footnote contains a list
-            format_mdast!(sep = "\n    "; s = &f.children, "[^{}]: {s}", f.identifier)
+            format_mdast!(ctx sep = "\n    "; s = &f.children, "[^{}]: {s}", f.identifier)
         }
         Node::Table(t) => {
             let mut s = String::new();
@@ -255,7 +263,7 @@ fn mdast_string(node: &Node, context: &Context) -> String {
                 if let Node::TableRow(r) = row {
                     for (column_index, cell) in r.children.iter().enumerate().take(t.align.len()) {
                         if let Node::TableCell(c) = cell {
-                            let cell_string = format_mdast!(&c.children);
+                            let cell_string = format_mdast!(ctx; &c.children);
                             let cell_width = UnicodeWidthStr::width(cell_string.as_str());
                             longest[column_index] = longest[column_index].max(cell_width);
                             table_skeleton[row_index * t.align.len() + column_index] =
@@ -549,6 +557,9 @@ mod tests {
             Stuff here.
 
             More stuff here.
+
+            1. Evil list
+            2. (=
         "#
 
         mdast_frontmatter r#"
