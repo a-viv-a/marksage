@@ -103,7 +103,11 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
         if let Node::List(list) = &mut new_mdast[*i] {
             let mut new_children = list.children.clone();
             new_children.remove(*j);
-            list.children = new_children;
+            if new_children.is_empty() {
+                new_mdast.remove(*i);
+            } else {
+                list.children = new_children;
+            }
         } else {
             panic!("to_delete target should have been a list");
         }
