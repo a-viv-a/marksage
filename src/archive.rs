@@ -4,7 +4,7 @@ use std::{cell::Cell, path::PathBuf};
 use crate::{markdown_file::MdastDocument, util::iterate_markdown_files};
 
 fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
-    println!("mdast: {:#?}", markdown.body);
+    // println!("mdast: {:#?}", markdown.body);
 
     let mut new_mdast = markdown.body.children.clone();
 
@@ -44,55 +44,257 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
             last_list
         });
 
-    // find all the list items that should be archived
-    #[derive(Clone)]
-    struct DeepIndex(Vec<usize>);
-    impl DeepIndex {
-        fn append(&self, index: usize) -> Self {
-            let mut new = self.clone();
-            new.0.push(index);
-            new
+    /*
+    mdast: Root {
+        children: [
+            Paragraph {
+                children: [
+                    Text {
+                        value: "#todo",
+                        position: Some(
+                            1:1-1:6 (0-5),
+                        ),
+                    },
+                ],
+                position: Some(
+                    1:1-1:6 (0-5),
+                ),
+            },
+            List {
+                children: [
+                    ListItem {
+                        children: [
+                            Paragraph {
+                                children: [
+                                    Text {
+                                        value: "todo0",
+                                        position: Some(
+                                            3:7-3:12 (13-18),
+                                        ),
+                                    },
+                                ],
+                                position: Some(
+                                    3:7-3:12 (13-18),
+                                ),
+                            },
+                        ],
+                        position: Some(
+                            3:1-3:12 (7-18),
+                        ),
+                        spread: false,
+                        checked: Some(
+                            true,
+                        ),
+                    },
+                    ListItem {
+                        children: [
+                            Paragraph {
+                                children: [
+                                    Text {
+                                        value: "todo1",
+                                        position: Some(
+                                            4:7-4:12 (25-30),
+                                        ),
+                                    },
+                                ],
+                                position: Some(
+                                    4:7-4:12 (25-30),
+                                ),
+                            },
+                            List {
+                                children: [
+                                    ListItem {
+                                        children: [
+                                            Paragraph {
+                                                children: [
+                                                    Text {
+                                                        value: "todo1-1",
+                                                        position: Some(
+                                                            5:11-5:18 (41-48),
+                                                        ),
+                                                    },
+                                                ],
+                                                position: Some(
+                                                    5:11-5:18 (41-48),
+                                                ),
+                                            },
+                                        ],
+                                        position: Some(
+                                            5:3-5:18 (33-48),
+                                        ),
+                                        spread: false,
+                                        checked: Some(
+                                            false,
+                                        ),
+                                    },
+                                    ListItem {
+                                        children: [
+                                            Paragraph {
+                                                children: [
+                                                    Text {
+                                                        value: "todo1-2",
+                                                        position: Some(
+                                                            6:11-6:18 (59-66),
+                                                        ),
+                                                    },
+                                                ],
+                                                position: Some(
+                                                    6:11-6:18 (59-66),
+                                                ),
+                                            },
+                                        ],
+                                        position: Some(
+                                            6:3-6:18 (51-66),
+                                        ),
+                                        spread: false,
+                                        checked: Some(
+                                            false,
+                                        ),
+                                    },
+                                ],
+                                position: Some(
+                                    5:3-6:18 (33-66),
+                                ),
+                                ordered: false,
+                                start: None,
+                                spread: false,
+                            },
+                        ],
+                        position: Some(
+                            4:1-6:18 (19-66),
+                        ),
+                        spread: false,
+                        checked: Some(
+                            true,
+                        ),
+                    },
+                    ListItem {
+                        children: [
+                            Paragraph {
+                                children: [
+                                    Text {
+                                        value: "todo2",
+                                        position: Some(
+                                            7:7-7:12 (73-78),
+                                        ),
+                                    },
+                                ],
+                                position: Some(
+                                    7:7-7:12 (73-78),
+                                ),
+                            },
+                        ],
+                        position: Some(
+                            7:1-7:12 (67-78),
+                        ),
+                        spread: false,
+                        checked: Some(
+                            false,
+                        ),
+                    },
+                    ListItem {
+                        children: [
+                            Paragraph {
+                                children: [
+                                    Text {
+                                        value: "todo3",
+                                        position: Some(
+                                            8:7-8:12 (85-90),
+                                        ),
+                                    },
+                                ],
+                                position: Some(
+                                    8:7-8:12 (85-90),
+                                ),
+                            },
+                        ],
+                        position: Some(
+                            8:1-9:1 (79-91),
+                        ),
+                        spread: false,
+                        checked: Some(
+                            false,
+                        ),
+                    },
+                ],
+                position: Some(
+                    3:1-9:1 (7-91),
+                ),
+                ordered: false,
+                start: None,
+                spread: false,
+            },
+            Heading {
+                children: [
+                    Text {
+                        value: "Archived",
+                        position: Some(
+                            10:4-10:12 (95-103),
+                        ),
+                    },
+                ],
+                position: Some(
+                    10:1-10:12 (92-103),
+                ),
+                depth: 2,
+            },
+            Paragraph {
+                children: [
+                    Text {
+                        value: "some random p content",
+                        position: Some(
+                            12:1-12:22 (105-126),
+                        ),
+                    },
+                ],
+                position: Some(
+                    12:1-12:22 (105-126),
+                ),
+            },
+        ],
+        position: Some(
+            1:1-13:1 (0-127),
+        ),
+    }
+
+        */
+
+    fn should_archive(node: &Node) -> bool {
+        match node {
+            Node::ListItem(list_item) => match list_item.checked {
+                Some(true) | None => list_item.children.iter().all(should_archive),
+                Some(false) => false,
+            },
+            Node::List(list) => list.children.iter().all(should_archive),
+            _ => true,
         }
     }
-    let mut should_archive: Vec<DeepIndex> = vec![];
-    let mut pending_archive: Vec<DeepIndex> = vec![];
-    let mut contains_unmarked: Cell<bool> = Cell::new(false);
 
-    fn explore_vec(
-        v: &[Node],
-        level: u32,
-        index: DeepIndex,
-        should_archive: &mut Vec<DeepIndex>,
-        pending_archive: &mut Vec<DeepIndex>,
-        contains_unmarked: &Cell<bool>,
-    ) {
-        if level != 0 && contains_unmarked.get() {
-            return;
-        }
-        for (i, node) in v.iter().enumerate() {
-            match node {
-                Node::List(l) => explore_vec(
-                    &l.children,
-                    level + 1,
-                    index.append(i),
-                    should_archive,
-                    pending_archive,
-                    contains_unmarked,
-                ),
-                Node::ListItem(li) => match li.checked {
-                    Some(true) | None => should_archive.push(index.append(i)),
-
-                    Some(false) => {
-                        contains_unmarked.set(true);
-                        pending_archive.clear();
+    for (i, node) in markdown
+        .body
+        .children
+        .iter()
+        .take(archived_section)
+        .enumerate()
+    {
+        if let Node::List(list) = node {
+            let mut archived_list = list.clone();
+            archived_list.children = list
+                .children
+                .iter()
+                .filter_map(|node| match node {
+                    Node::ListItem(list_item) if should_archive(node) => {
+                        Some(Node::ListItem(list_item.clone()))
                     }
-                },
-                _ => (),
+                    _ => None,
+                })
+                .collect();
+
+            if !archived_list.children.is_empty() {
+                new_mdast.insert(archived_section + 1, Node::List(archived_list));
             }
         }
     }
-
-    pending_archive.append(&mut should_archive);
 
     Some(markdown.replace_with(
         markdown.frontmatter.clone(),
