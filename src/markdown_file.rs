@@ -18,6 +18,14 @@ impl File {
         let content = fs::read_to_string(&path)?;
         Ok(Self { path, content })
     }
+
+    // need to refactor to not do this
+    pub fn evil_fixme_from_string(content: String) -> Self {
+        Self {
+            path: PathBuf::new(),
+            content,
+        }
+    }
 }
 
 pub struct MdastDocument {
