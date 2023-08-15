@@ -153,8 +153,9 @@ mod tests {
                     Some(actual_mdast) => {
                         let actual = input_document.replace_with(input_document.frontmatter.clone(), actual_mdast).render();
                         assert_eq!(actual, expected);
+                        assert_ne!(input, expected);
                     },
-                    None => assert!(input == expected, "archive_markdown returned None, but the expected output was not the input file. Input was:\n{}", input),
+                    None => assert_eq!(input, expected, "archive_markdown returned None, but the expected output was not the input file. Input was:\n{}", input),
                 }
 
             }
@@ -171,7 +172,6 @@ mod tests {
         "#
 
         archive_single_item r#"
-        #todo
         - [x] item 1
         "# => r#"
         ## Archived
@@ -209,6 +209,33 @@ mod tests {
         - [x] item 1
             - [x] item 1.1
             - [x] item 1.2
+        "#
+
+        archive_mixed_items r#"
+        - [x] item 1
+            1. [x] item 1.1
+            2. [x] item 1.2
+        - collection
+            - [x] item 2.1
+            - [ ] item 2.2
+        - second collection
+            - [x] item 3.1
+            - [x] item 3.2
+        - [ ] item 4
+        "# => r#"
+        - collection
+            - [x] item 2.1
+            - [ ] item 2.2
+        - [ ] item 4
+
+        ## Archived
+
+        - [x] item 1
+            1. [x] item 1.1
+            2. [x] item 1.2
+        - second collection
+            - [x] item 3.1
+            - [x] item 3.2
         "#
     }
 }
