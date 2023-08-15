@@ -325,6 +325,10 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
         }
     }
 
+    if to_delete.is_empty() {
+        return None;
+    }
+
     Some(markdown.replace_with(
         markdown.frontmatter.clone(),
         mdast::Root {
