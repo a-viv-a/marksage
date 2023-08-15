@@ -1,15 +1,16 @@
 use markdown::mdast::{self, Node};
-use std::{cell::Cell, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{markdown_file::MdastDocument, util::iterate_markdown_files};
 
 fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
     // println!("mdast: {:#?}", markdown.body);
 
-    let mut new_mdast = markdown.body.children.clone();
+    let mut new_mdast: Vec<Node> = markdown.body.children.clone();
 
     // find or create the archived section
     let archived_section = new_mdast
+        
         .iter()
         .enumerate()
         .find(|(_, node)| match node {
@@ -28,6 +29,7 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
             };
             // find the last list
             let last_list = new_mdast
+                
                 .iter()
                 .enumerate()
                 .rev()
@@ -278,17 +280,35 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
         .enumerate()
     {
         if let Node::List(list) = node {
-            let mut archived_list = list.clone();
-            archived_list.children = list
+            let archived_children: Vec<_> = list
                 .children
                 .iter()
-                .filter_map(|node| match node {
+                .enumerate()
+                .filter_map(|(j, node)| match node {
                     Node::ListItem(list_item) if should_archive(node) => {
-                        Some(Node::ListItem(list_item.clone()))
+                        Some((j, Node::ListItem(list_item.clone())))
                     }
                     _ => None,
                 })
                 .collect();
+
+            if archived_children.is_empty() {
+                continue;
+            }
+
+            archived_children.iter().rev().for_each(|(j, _)| {
+                let mut list = list.clone();
+                list.children.remove(*j);
+                new_mdast[i] = Node::List(list);
+            });
+
+            let archived_list = mdast::List {
+                children: archived_children
+                    .into_iter()
+                    .map(|(_, node)| node)
+                    .collect(),
+                ..list.clone()
+            };
 
             if !archived_list.children.is_empty() {
                 new_mdast.insert(archived_section + 1, Node::List(archived_list));
