@@ -1,27 +1,106 @@
-use std::path::PathBuf;
+use markdown::mdast::{self, Node};
+use std::{cell::Cell, path::PathBuf};
 
-use lazy_static::lazy_static;
-use regex::Regex;
-
-use crate::{
-    markdown_file::{self, MdastDocument},
-    util::iterate_markdown_files,
-};
-
-lazy_static! {
-    static ref GET_PRE_ARCHIVED_SECTION: Regex = Regex::new(r"(?s)^.*\n## Archived").unwrap();
-    static ref PARSE_TODO_ITEMS: Regex = Regex::new(r"(?m)^(\t*)- \[(x| )] .*$\n?").unwrap();
-    // The position to insert an archived todo after
-    static ref GET_ARCHIVED_TODO_INSERTION_POINT: Regex = Regex::new(r"(?m)^## Archived\n\n").unwrap();
-    // The position to insert the ## Archived section after
-    static ref GET_ARCHIVED_HEADER_INSERTION_POINT: Regex =
-        Regex::new(r"(?s)^(?:.*\n *)?- \[(?:x|\s)] (.*?)(?:$|\n)").unwrap();
-}
+use crate::{markdown_file::MdastDocument, util::iterate_markdown_files};
 
 fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
-    println!("{:?}", markdown.body);
+    println!("mdast: {:#?}", markdown.body);
 
-    None
+    let mut new_mdast = markdown.body.children.clone();
+
+    // find or create the archived section
+    let archived_section = new_mdast
+        .iter()
+        .enumerate()
+        .find(|(_, node)| match node {
+            Node::Heading(heading) => heading.depth == 2 && matches!(heading.children.first(), Some(Node::Text(text)) if text.value == "Archived"),
+            _ => false,
+        })
+        .map(|(index, _)| index)
+        .unwrap_or_else(|| {
+            let archived_heading = mdast::Heading {
+                depth: 2,
+                children: vec![Node::Text(mdast::Text {
+                    value: "Archived".to_string(),
+                    position: None,
+                })],
+                position: None,
+            };
+            // find the last list
+            let last_list = new_mdast
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, node)| matches!(node, Node::List(_)))
+                .map(|(index, _)| index + 1)
+                .unwrap_or_else(|| new_mdast.len());
+
+            if last_list == new_mdast.len() {
+                new_mdast.push(Node::Heading(archived_heading));
+            } else {
+                new_mdast.insert(last_list, Node::Heading(archived_heading));
+            }
+
+            last_list
+        });
+
+    // find all the list items that should be archived
+    #[derive(Clone)]
+    struct DeepIndex(Vec<usize>);
+    impl DeepIndex {
+        fn append(&self, index: usize) -> Self {
+            let mut new = self.clone();
+            new.0.push(index);
+            new
+        }
+    }
+    let mut should_archive: Vec<DeepIndex> = vec![];
+    let mut pending_archive: Vec<DeepIndex> = vec![];
+    let mut contains_unmarked: Cell<bool> = Cell::new(false);
+
+    fn explore_vec(
+        v: &[Node],
+        level: u32,
+        index: DeepIndex,
+        should_archive: &mut Vec<DeepIndex>,
+        pending_archive: &mut Vec<DeepIndex>,
+        contains_unmarked: &Cell<bool>,
+    ) {
+        if level != 0 && contains_unmarked.get() {
+            return;
+        }
+        for (i, node) in v.iter().enumerate() {
+            match node {
+                Node::List(l) => explore_vec(
+                    &l.children,
+                    level + 1,
+                    index.append(i),
+                    should_archive,
+                    pending_archive,
+                    contains_unmarked,
+                ),
+                Node::ListItem(li) => match li.checked {
+                    Some(true) | None => should_archive.push(index.append(i)),
+
+                    Some(false) => {
+                        contains_unmarked.set(true);
+                        pending_archive.clear();
+                    }
+                },
+                _ => (),
+            }
+        }
+    }
+
+    pending_archive.append(&mut should_archive);
+
+    Some(markdown.replace_with(
+        markdown.frontmatter.clone(),
+        mdast::Root {
+            children: new_mdast,
+            position: None,
+        },
+    ))
 }
 
 pub fn archive(vault_path: PathBuf) {

@@ -55,6 +55,14 @@ impl MdastDocument {
         }
     }
 
+    pub fn replace_with(&self, new_frontmatter: Option<String>, new_body: mdast::Root) -> Self {
+        MdastDocument {
+            frontmatter: new_frontmatter,
+            body: new_body,
+            path: self.path.clone(),
+        }
+    }
+
     pub fn atomic_overwrite(self) -> io::Result<()> {
         let mut tmp_path = self.path.clone();
         tmp_path.set_extension("tmp.md");
