@@ -272,6 +272,7 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
         }
     }
 
+    let mut to_delete = vec![];
     for (i, node) in markdown
         .body
         .children
@@ -296,10 +297,8 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
                 continue;
             }
 
-            archived_children.iter().rev().for_each(|(j, _)| {
-                let mut list = list.clone();
-                list.children.remove(*j);
-                new_mdast[i] = Node::List(list);
+            archived_children.iter().for_each(|(j, _)| {
+                to_delete.push((i, *j));
             });
 
             let archived_list = mdast::List {
@@ -313,6 +312,16 @@ fn archive_markdown(markdown: MdastDocument) -> Option<MdastDocument> {
             if !archived_list.children.is_empty() {
                 new_mdast.insert(archived_section + 1, Node::List(archived_list));
             }
+        }
+    }
+
+    for (i, j) in to_delete.iter().rev() {
+        if let Node::List(list) = &mut new_mdast[*i] {
+            let mut new_children = list.children.clone();
+            new_children.remove(*j);
+            list.children = new_children;
+        } else {
+            panic!("to_delete target should have been a list");
         }
     }
 
