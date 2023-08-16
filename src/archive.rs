@@ -120,17 +120,30 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
                 to_delete.push((i, *j));
             });
 
-            let archived_list = mdast::List {
-                children: archived_children
+            let mut new_children: Vec<_> = archived_children
                     .into_iter()
                     .map(|(_, node)| node)
-                    .collect(),
-                ..list.clone()
-            };
-
-            if !archived_list.children.is_empty() {
-                new_mdast.insert(archived_section + 1, Node::List(archived_list));
+                    .collect();
+            
+            if new_children.is_empty() {
+                continue;
             }
+
+            match new_mdast.get(archived_section + 1) {
+                Some(Node::List(list)) => {
+                    let mut list = list.clone();
+                    new_children.append(&mut list.children);
+                    list.children = new_children;
+                    new_mdast[archived_section + 1] = Node::List(list);
+                }
+                _ => {
+                    new_mdast.insert(archived_section + 1, Node::List(mdast::List {
+                        children: new_children,
+                        ..list.clone()
+                    }));
+                }
+            }
+            
         }
     }
 
@@ -179,11 +192,14 @@ mod tests {
             #[test]
             fn $name() {
                 let input = indoc!($input);
+                println!("input: \n{}", input);
                 let input_document = MdastDocument::parse(input);
                 let expected = indoc!($expected);
+                println!("expected: \n{}", expected);
                 match archive_mdast(&input_document.body) {
                     Some(actual_mdast) => {
                         let actual = MdastDocument::of(actual_mdast).render();
+                        println!("actual: \n{}", actual);
                         assert_eq!(actual, expected);
                         assert_ne!(input, expected);
                     },
