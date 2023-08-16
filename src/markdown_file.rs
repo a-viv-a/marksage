@@ -590,5 +590,12 @@ mod tests {
             let mdast_document = MdastDocument::parse(&input);
             mdast_document.render();
         }
+
+        #[test]
+        fn mdast_document_repeated_render_is_equal(input in "[[:alpha:]0-9#!<>`\\-\\*_~\\$\\n\\[\\] ]{10,}") {
+            let render = MdastDocument::parse(&input).render();
+            let render2 = MdastDocument::parse(&input).render();
+            pretty_assert_eq!(render, render2);
+        }
     }
 }
