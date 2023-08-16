@@ -46,14 +46,50 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
             last_list
         });
 
-    fn should_archive(node: &Node) -> bool {
+    enum Assessment {
+        Is(bool),
+        Maybe,
+    }
+
+    impl Assessment {
+        fn bias(self, by: Assessment) -> Self {
+            match (self, by) {
+                (Assessment::Is(false), _) | (_, Assessment::Is(false)) => Assessment::Is(false),
+                (Assessment::Is(true), _) | (_, Assessment::Is(true)) => Assessment::Is(true),
+                _ => Assessment::Maybe,
+            }
+        }
+
+        fn definitively(self) -> bool {
+            matches!(self, Assessment::Is(true))
+        }
+    }
+
+    // using collect is fine for performance because iter is lazy
+    // short circuiting is achieved bc next stops being called on first false
+    impl FromIterator<Assessment> for Assessment {
+        fn from_iter<T: IntoIterator<Item = Assessment>>(iter: T) -> Self {
+            let mut iter = iter.into_iter();
+            let mut result = Assessment::Maybe;
+            while let Some(next) = iter.next() {
+                result = result.bias(next);
+                if matches!(result, Assessment::Is(false)) {
+                    return result;
+                }
+            }
+            result
+        }
+    }
+
+    fn should_archive(node: &Node) -> Assessment {
         match node {
             Node::ListItem(list_item) => match list_item.checked {
-                Some(true) | None => list_item.children.iter().all(should_archive),
-                Some(false) => false,
+                Some(true) => list_item.children.iter().map(should_archive).collect::<Assessment>().bias(Assessment::Is(true)),
+                None => list_item.children.iter().map(should_archive).collect::<Assessment>(),
+                Some(false) => Assessment::Is(false),
             },
-            Node::List(list) => list.children.iter().all(should_archive),
-            _ => true,
+            Node::List(list) => list.children.iter().map(should_archive).collect::<Assessment>(),
+            _ => Assessment::Maybe,
         }
     }
 
@@ -70,7 +106,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
                 .iter()
                 .enumerate()
                 .filter_map(|(j, node)| match node {
-                    Node::ListItem(list_item) if should_archive(node) => {
+                    Node::ListItem(list_item) if should_archive(node).definitively() => {
                         Some((j, Node::ListItem(list_item.clone())))
                     }
                     _ => None,
