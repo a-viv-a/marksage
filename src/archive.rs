@@ -69,9 +69,8 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
     // short circuiting is achieved bc next stops being called on first false
     impl FromIterator<Assessment> for Assessment {
         fn from_iter<T: IntoIterator<Item = Assessment>>(iter: T) -> Self {
-            let mut iter = iter.into_iter();
             let mut result = Assessment::Maybe;
-            while let Some(next) = iter.next() {
+            for next in iter.into_iter() {
                 result = result.bias(next);
                 if matches!(result, Assessment::Is(false)) {
                     return result;
@@ -162,10 +161,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
-        .filter_map(|(path, document)| match archive_mdast(&document.body) {
-            Some(mdast) => Some((path, MdastDocument { frontmatter: None, body: mdast }.render())),
-            None => None,
-        })
+        .filter_map(|(path, document)| archive_mdast(&document.body).map(|mdast| (path, MdastDocument { frontmatter: None, body: mdast }.render())))
         .map(|(path, content)| File::atomic_overwrite(&path, content))
         .for_each(Result::unwrap);
 }

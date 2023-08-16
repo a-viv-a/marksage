@@ -1,4 +1,3 @@
-use rand;
 use std::{fs, io, path::PathBuf};
 
 use lazy_static::lazy_static;
@@ -47,7 +46,7 @@ impl MdastDocument {
         // mdast doesn't support frontmatter, so we have to extract it manually
 
         let frontmatter = FRONTMATTER
-            .captures(&md_string)
+            .captures(md_string)
             .map(|c| c.get(1).unwrap().as_str().to_string());
 
         let body = markdown::to_mdast(
@@ -62,6 +61,7 @@ impl MdastDocument {
         }
     }
 
+    #[cfg(test)]
     pub fn of(body: mdast::Root) -> MdastDocument {
         MdastDocument {
             frontmatter: None,
@@ -158,7 +158,6 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     Context {
                         list_index: None,
                         list_indent,
-                        ..ctx
                     },
                     &l.children,
                     "",
@@ -176,7 +175,6 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                             Context {
                                 list_index: Some(inc()),
                                 list_indent,
-                                ..ctx
                             },
                         ),
                         _ => (
@@ -184,7 +182,6 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                             Context {
                                 list_index: None,
                                 list_indent,
-                                ..ctx
                             },
                         ),
                     }))
