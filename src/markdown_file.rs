@@ -241,6 +241,8 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
             .join(""),
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
+        Node::ImageReference(ir) => format!("![{}][{}]", ir.alt, ir.identifier),
+        Node::Definition(d) => format!("[{}]: {}", d.identifier, d.url),
         Node::FootnoteReference(f) => format!("[^{}]", f.identifier),
         Node::FootnoteDefinition(f) => {
             format!(
@@ -563,6 +565,12 @@ mod tests {
 
             1. Evil list
             2. (=
+        "#
+
+        mdast_image_reference r#"
+        ![Image][1]
+
+        [1]: https://via.placeholder.com/150
         "#
 
         mdast_frontmatter r#"
