@@ -582,6 +582,42 @@ mod tests {
 
         some content
         "#
+
+        mdast_horizontal_rule r#"
+        stuff
+
+        ---
+
+        more stuff
+        "#
+
+        mdast_dual_horizontal_rule r#"
+        stuff
+
+        ---
+
+        ---
+
+        more stuff
+        "#
+
+        mdast_many_horizontal_rules r#"
+        # rules!
+    
+        ---
+
+        ***
+
+        ___
+        "# => r#"
+        # rules!
+
+        ---
+
+        ---
+
+        ---
+        "#
     }
 
     proptest! {
