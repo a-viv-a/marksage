@@ -516,6 +516,7 @@ dependencies = [
  "paste",
  "pretty_assertions",
  "proptest",
+ "rand",
  "regex",
  "unicode-width",
  "walkdir",

@@ -125,12 +125,12 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
 
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
-        .map(MdastDocument::parse)
-        .filter_map(|document| match archive_mdast(&document.body) {
-            Some(mdast) => Some(document.replace_with(document.frontmatter.clone(), mdast)),
+        .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
+        .filter_map(|(path, document)| match archive_mdast(&document.body) {
+            Some(mdast) => Some((path, MdastDocument { frontmatter: None, body: mdast }.render())),
             None => None,
         })
-        .map(|f| f.atomic_overwrite())
+        .map(|(path, content)| File::atomic_overwrite(&path, content))
         .for_each(Result::unwrap);
 }
 
@@ -147,11 +147,11 @@ mod tests {
             #[test]
             fn $name() {
                 let input = indoc!($input);
-                let input_document = MdastDocument::parse(File::evil_fixme_from_string(input.to_string()));
+                let input_document = MdastDocument::parse(input);
                 let expected = indoc!($expected);
                 match archive_mdast(&input_document.body) {
                     Some(actual_mdast) => {
-                        let actual = input_document.replace_with(input_document.frontmatter.clone(), actual_mdast).render();
+                        let actual = MdastDocument::of(actual_mdast).render();
                         assert_eq!(actual, expected);
                         assert_ne!(input, expected);
                     },

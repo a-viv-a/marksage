@@ -1,15 +1,13 @@
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::{fmt::format, fs, io, path::PathBuf};
+use rand;
+use std::{fs, io, path::PathBuf};
 
 use lazy_static::lazy_static;
 use markdown::mdast::{self, Node};
-use paste::paste;
 use regex::Regex;
 use unicode_width::UnicodeWidthStr;
 
 pub struct File {
-    path: PathBuf,
+    pub path: PathBuf,
     pub content: String,
 }
 
@@ -19,19 +17,24 @@ impl File {
         Ok(Self { path, content })
     }
 
-    // need to refactor to not do this
-    pub fn evil_fixme_from_string(content: String) -> Self {
-        Self {
-            path: PathBuf::new(),
-            content,
-        }
+    pub fn atomic_overwrite(path: &PathBuf, content: String) -> io::Result<()> {
+        let tmp_path = path.with_extension(format!(
+            "tmp{}{}",
+            rand::random::<u64>(),
+            path.extension()
+                .unwrap_or_default()
+                .to_str()
+                .map_or_else(String::new, |s| format!(".{}", s))
+        ));
+        fs::write(&tmp_path, content)?;
+        fs::rename(tmp_path, path)?;
+        Ok(())
     }
 }
 
 pub struct MdastDocument {
     pub frontmatter: Option<String>,
     pub body: mdast::Root,
-    path: PathBuf,
 }
 
 lazy_static! {
@@ -39,44 +42,31 @@ lazy_static! {
 }
 
 impl MdastDocument {
-    /// Produce an ast and frontmatter from a markdown file
-    pub fn parse(file: File) -> MdastDocument {
+    /// Produce an ast and frontmatter from a markdown string
+    pub fn parse(md_string: &str) -> MdastDocument {
         // mdast doesn't support frontmatter, so we have to extract it manually
 
         let frontmatter = FRONTMATTER
-            .captures(&file.content)
+            .captures(&md_string)
             .map(|c| c.get(1).unwrap().as_str().to_string());
 
         let body = markdown::to_mdast(
-            &file.content[frontmatter.as_ref().map_or(0, |f| f.len() + 10)..],
+            &md_string[frontmatter.as_ref().map_or(0, |f| f.len() + 10)..],
             &markdown::ParseOptions::gfm(),
         )
         .expect("never fails with gfm");
 
         match body {
-            Node::Root(body) => MdastDocument {
-                frontmatter,
-                body,
-                path: file.path,
-            },
+            Node::Root(body) => MdastDocument { frontmatter, body },
             _ => panic!("expected root node, got {:?}", body),
         }
     }
 
-    pub fn replace_with(&self, new_frontmatter: Option<String>, new_body: mdast::Root) -> Self {
+    pub fn of(body: mdast::Root) -> MdastDocument {
         MdastDocument {
-            frontmatter: new_frontmatter,
-            body: new_body,
-            path: self.path.clone(),
+            frontmatter: None,
+            body,
         }
-    }
-
-    pub fn atomic_overwrite(self) -> io::Result<()> {
-        let mut tmp_path = self.path.clone();
-        tmp_path.set_extension("tmp.md");
-        fs::write(&tmp_path, self.render())?;
-        fs::rename(tmp_path, self.path)?;
-        Ok(())
     }
 
     pub fn render(&self) -> String {
@@ -349,10 +339,7 @@ mod tests {
                     $(let expected =
                         Some(indoc!($expected));
                     )?
-                    let mdast_document = MdastDocument::parse(File {
-                        path: PathBuf::new(),
-                        content: input.to_string(),
-                    });
+                    let mdast_document = MdastDocument::parse(input);
                     let render = mdast_document.render();
                     match expected {
                         Some(expected) => {
@@ -592,10 +579,7 @@ mod tests {
     proptest! {
         #[test]
         fn mdast_document_render_does_not_crash(input in "[[:alpha:]0-9#!<>`\\-\\*_~\\$\\n\\[\\] ]{10,}") {
-            let mdast_document = MdastDocument::parse(File {
-                path: PathBuf::new(),
-                content: input.clone(),
-            });
+            let mdast_document = MdastDocument::parse(&input);
             mdast_document.render();
         }
     }
