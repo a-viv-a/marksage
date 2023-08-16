@@ -38,7 +38,7 @@ pub struct MdastDocument {
 }
 
 lazy_static! {
-    static ref FRONTMATTER: Regex = Regex::new(r"(?s)-{3}\n(.*)\n-{3}\n").unwrap();
+    static ref FRONTMATTER: Regex = Regex::new(r"(?s)^-{3}\n(.*)\n-{3}\n").unwrap();
 }
 
 impl MdastDocument {
