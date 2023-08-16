@@ -237,5 +237,24 @@ mod tests {
             - [x] item 3.1
             - [x] item 3.2
         "#
+
+        do_not_archive_non_todo_lists r#"
+        - [x] item 1
+            1. [x] item 1.1
+            2. [x] item 1.2
+        - collection
+            - stuff
+            - more stuff
+        "# => r#"
+        - collection
+            - stuff
+            - more stuff
+        
+        ## Archived
+
+        - [x] item 1
+            1. [x] item 1.1
+            2. [x] item 1.2
+        "#
     }
 }
