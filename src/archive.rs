@@ -288,5 +288,37 @@ mod tests {
             1. [x] item 1.1
             2. [x] item 1.2
         "#
+
+        archive_root_level_insert r#"
+        - [ ] 1
+        - [ ] 2
+        - [x] 3
+            - [x] 3.1
+        - [ ] 4
+        - [x] 5
+
+        ## Archived
+
+        - [x] a1
+        - [x] a2
+        - [x] a3
+            - [x] a3.1
+        - [x] a4
+        "# => r#"
+        - [ ] 1
+        - [ ] 2
+        - [ ] 4
+
+        ## Archived
+
+        - [x] 3
+            - [x] 3.1
+        - [x] 5
+        - [x] a1
+        - [x] a2
+        - [x] a3
+            - [x] a3.1
+        - [x] a4
+        "#
     }
 }
