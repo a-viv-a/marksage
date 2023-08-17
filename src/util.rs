@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use rayon::prelude::*;
 use regex::Regex;
 use walkdir::{DirEntry, WalkDir};
 
@@ -35,16 +36,17 @@ pub fn is_visible(entry: &DirEntry) -> bool {
         .map_or(false, |s| !s.starts_with('.'))
 }
 
-pub fn iterate_markdown_files(
+pub fn iterate_tagged_markdown_files(
     vault_path: PathBuf,
     tag: &str,
-) -> impl Iterator<Item = markdown_file::File> {
+) -> impl ParallelIterator<Item = markdown_file::File> {
     let is_tagged = markdown_contains_tag(tag).unwrap();
 
     WalkDir::new(vault_path)
         .into_iter()
         .filter_entry(is_visible)
         .map(Result::unwrap)
+        .par_bridge()
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().unwrap_or_default() == "md")
         .map(|e| markdown_file::File::at_path(e.path().to_path_buf()).unwrap())

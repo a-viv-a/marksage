@@ -1,9 +1,10 @@
 use markdown::mdast::{self, Node};
+use rayon::iter::ParallelIterator;
 use std::path::PathBuf;
 
 use crate::{
     markdown_file::{File, MdastDocument},
-    util::iterate_markdown_files,
+    util::iterate_tagged_markdown_files,
 };
 
 fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
@@ -180,7 +181,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
 }
 
 pub fn archive(vault_path: PathBuf) {
-    iterate_markdown_files(vault_path, "todo")
+    iterate_tagged_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| {
             archive_mdast(&document.body).map(|mdast| {
