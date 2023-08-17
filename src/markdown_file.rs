@@ -57,7 +57,7 @@ impl MdastDocument {
 
         match body {
             Node::Root(body) => MdastDocument { frontmatter, body },
-            _ => panic!("expected root node, got {:?}", body),
+            _ => panic!("expected root node, got {body:?}"),
         }
     }
 
@@ -74,7 +74,7 @@ impl MdastDocument {
             "{}{}",
             self.frontmatter
                 .as_ref()
-                .map_or_else(String::new, |f| format!("---\n{}\n---\n\n", f)),
+                .map_or_else(String::new, |f| format!("---\n{f}\n---\n\n")),
             self.body
                 .children
                 .iter()
@@ -123,8 +123,7 @@ fn recursive_contextual_mdast_string<'a>(
     nodes
         .into_iter()
         .map(|(n, ctx)| mdast_string(n, ctx))
-        .collect::<Vec<String>>()
-        .join("")
+        .collect::<String>()
 }
 
 macro_rules! format_mdast {
@@ -192,7 +191,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
             "{}{} {}{}",
             " ".repeat(ctx.list_indent.unwrap_or(0) * 4),
             match ctx.list_index {
-                Some(i) => format!("{}.", i),
+                Some(i) => format!("{i}."),
                 None => "-".to_string(),
             },
             match li.checked {
@@ -225,17 +224,16 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         Node::Link(l) => {
             let text = recursive_mdast_string(ctx, &l.children, "");
             if l.url == text {
-                format!("<{}>", text)
+                format!("<{text}>")
             } else {
-                format!("[{}]({})", text, l.url)
+                format!("[{text}]({})", l.url)
             }
         }
         Node::Image(i) => format!("![{}]({})", i.alt, i.url),
         Node::BlockQuote(b) => recursive_mdast_string(ctx, &b.children, "")
             .lines()
-            .map(|l| format!("> {}\n", l))
-            .collect::<Vec<String>>()
-            .join(""),
+            .map(|l| format!("> {l}\n"))
+            .collect::<String>(),
         Node::ThematicBreak(_) => "---\n".to_string(),
         Node::Html(h) => h.value.clone(),
         Node::ImageReference(ir) => format!("![{}][{}]", ir.alt, ir.identifier),
@@ -251,8 +249,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     .map(|(i, n)| mdast_string(n, ctx)
                         .lines()
                         .map(|l| format!("{}{}\n", if i == 0 { "" } else { "    " }, l))
-                        .collect::<Vec<String>>()
-                        .join(""))
+                        .collect::<String>())
                     .collect::<Vec<String>>()
                     .join("\n")
             )
@@ -310,11 +307,11 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
 
             // ensure empty table keep the delim
             if t.children.len() == 1 {
-                s += delim
+                s += delim;
             }
             s
         }
-        _ => panic!("Unexpected node type {:#?}", node),
+        _ => panic!("Unexpected node type {node:#?}"),
     }
 }
 

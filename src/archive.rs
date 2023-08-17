@@ -7,43 +7,6 @@ use crate::{
 };
 
 fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
-    let mut new_mdast: Vec<Node> = mdast.children.clone();
-
-    // find or create the archived section
-    let archived_section = new_mdast
-        .iter()
-        .enumerate()
-        .find(|(_, node)| match node {
-            Node::Heading(heading) => heading.depth == 2 && matches!(heading.children.first(), Some(Node::Text(text)) if text.value == "Archived"),
-            _ => false,
-        })
-        .map(|(index, _)| index)
-        .unwrap_or_else(|| {
-            let archived_heading = mdast::Heading {
-                depth: 2,
-                children: vec![Node::Text(mdast::Text {
-                    value: "Archived".to_string(),
-                    position: None,
-                })],
-                position: None,
-            };
-            // find the last list
-            let last_list = new_mdast
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, node)| matches!(node, Node::List(_)))
-                .map_or_else(|| new_mdast.len(), |(index, _)| index + 1);
-
-            if last_list == new_mdast.len() {
-                new_mdast.push(Node::Heading(archived_heading));
-            } else {
-                new_mdast.insert(last_list, Node::Heading(archived_heading));
-            }
-
-            last_list
-        });
-
     enum Assessment {
         Is(bool),
         Maybe,
@@ -103,6 +66,43 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
         }
     }
 
+    let mut new_mdast: Vec<Node> = mdast.children.clone();
+
+    // find or create the archived section
+    let archived_section = new_mdast
+        .iter()
+        .enumerate()
+        .find(|(_, node)| match node {
+            Node::Heading(heading) => heading.depth == 2 && matches!(heading.children.first(), Some(Node::Text(text)) if text.value == "Archived"),
+            _ => false,
+        })
+        .map(|(index, _)| index)
+        .unwrap_or_else(|| {
+            let archived_heading = mdast::Heading {
+                depth: 2,
+                children: vec![Node::Text(mdast::Text {
+                    value: "Archived".to_string(),
+                    position: None,
+                })],
+                position: None,
+            };
+            // find the last list
+            let last_list = new_mdast
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, node)| matches!(node, Node::List(_)))
+                .map_or_else(|| new_mdast.len(), |(index, _)| index + 1);
+
+            if last_list == new_mdast.len() {
+                new_mdast.push(Node::Heading(archived_heading));
+            } else {
+                new_mdast.insert(last_list, Node::Heading(archived_heading));
+            }
+
+            last_list
+        });
+
     let mut to_delete = vec![];
     for (i, node) in mdast.children.iter().take(archived_section).enumerate() {
         if let Node::List(list) = node {
@@ -122,7 +122,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
                 continue;
             }
 
-            for (j, _) in archived_children.iter() {
+            for (j, _) in &archived_children {
                 to_delete.push((i, *j));
             }
 

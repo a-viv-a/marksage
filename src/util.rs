@@ -32,8 +32,7 @@ pub fn is_visible(entry: &DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
-        .map(|s| !s.starts_with('.'))
-        .unwrap_or(false)
+        .map_or(false, |s| !s.starts_with('.'))
 }
 
 pub fn iterate_markdown_files(
@@ -45,7 +44,7 @@ pub fn iterate_markdown_files(
     WalkDir::new(vault_path)
         .into_iter()
         .filter_entry(is_visible)
-        .map(|e| e.unwrap())
+        .map(Result::unwrap)
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().unwrap_or_default() == "md")
         .map(|e| markdown_file::File::at_path(e.path().to_path_buf()).unwrap())
