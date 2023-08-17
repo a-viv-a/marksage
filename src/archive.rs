@@ -175,7 +175,10 @@ pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| archive_mdast(&document.body).map(|mdast| (path, MdastDocument { frontmatter: None, body: mdast }.render())))
-        .map(|(path, content)| File::atomic_overwrite(&path, content))
+        .map(|(path, content)| {
+            println!("Archiving {}", path.display());
+            File::atomic_overwrite(&path, content)
+        })
         .for_each(Result::unwrap);
 }
 
