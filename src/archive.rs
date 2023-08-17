@@ -1,16 +1,16 @@
 use markdown::mdast::{self, Node};
 use std::path::PathBuf;
 
-use crate::{markdown_file::{MdastDocument, File}, util::iterate_markdown_files};
+use crate::{
+    markdown_file::{File, MdastDocument},
+    util::iterate_markdown_files,
+};
 
 fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
-    // println!("mdast: {:#?}", markdown.body);
-
     let mut new_mdast: Vec<Node> = mdast.children.clone();
 
     // find or create the archived section
     let archived_section = new_mdast
-        
         .iter()
         .enumerate()
         .find(|(_, node)| match node {
@@ -29,13 +29,11 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
             };
             // find the last list
             let last_list = new_mdast
-                
                 .iter()
                 .enumerate()
                 .rev()
                 .find(|(_, node)| matches!(node, Node::List(_)))
-                .map(|(index, _)| index + 1)
-                .unwrap_or_else(|| new_mdast.len());
+                .map_or_else(|| new_mdast.len(), |(index, _)| index + 1);
 
             if last_list == new_mdast.len() {
                 new_mdast.push(Node::Heading(archived_heading));
@@ -70,7 +68,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
     impl FromIterator<Assessment> for Assessment {
         fn from_iter<T: IntoIterator<Item = Assessment>>(iter: T) -> Self {
             let mut result = Assessment::Maybe;
-            for next in iter.into_iter() {
+            for next in iter {
                 result = result.bias(next);
                 if matches!(result, Assessment::Is(false)) {
                     return result;
@@ -83,22 +81,30 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
     fn should_archive(node: &Node) -> Assessment {
         match node {
             Node::ListItem(list_item) => match list_item.checked {
-                Some(true) => list_item.children.iter().map(should_archive).collect::<Assessment>().bias(Assessment::Is(true)),
-                None => list_item.children.iter().map(should_archive).collect::<Assessment>(),
+                Some(true) => list_item
+                    .children
+                    .iter()
+                    .map(should_archive)
+                    .collect::<Assessment>()
+                    .bias(Assessment::Is(true)),
+                None => list_item
+                    .children
+                    .iter()
+                    .map(should_archive)
+                    .collect::<Assessment>(),
                 Some(false) => Assessment::Is(false),
             },
-            Node::List(list) => list.children.iter().map(should_archive).collect::<Assessment>(),
+            Node::List(list) => list
+                .children
+                .iter()
+                .map(should_archive)
+                .collect::<Assessment>(),
             _ => Assessment::Maybe,
         }
     }
 
     let mut to_delete = vec![];
-    for (i, node) in mdast
-        .children
-        .iter()
-        .take(archived_section)
-        .enumerate()
-    {
+    for (i, node) in mdast.children.iter().take(archived_section).enumerate() {
         if let Node::List(list) = node {
             let archived_children: Vec<_> = list
                 .children
@@ -116,15 +122,15 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
                 continue;
             }
 
-            archived_children.iter().for_each(|(j, _)| {
+            for (j, _) in archived_children.iter() {
                 to_delete.push((i, *j));
-            });
+            }
 
             let mut new_children: Vec<_> = archived_children
-                    .into_iter()
-                    .map(|(_, node)| node)
-                    .collect();
-            
+                .into_iter()
+                .map(|(_, node)| node)
+                .collect();
+
             if new_children.is_empty() {
                 continue;
             }
@@ -137,13 +143,15 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
                     new_mdast[archived_section + 1] = Node::List(list);
                 }
                 _ => {
-                    new_mdast.insert(archived_section + 1, Node::List(mdast::List {
-                        children: new_children,
-                        ..list.clone()
-                    }));
+                    new_mdast.insert(
+                        archived_section + 1,
+                        Node::List(mdast::List {
+                            children: new_children,
+                            ..list.clone()
+                        }),
+                    );
                 }
             }
-            
         }
     }
 
@@ -174,7 +182,18 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
 pub fn archive(vault_path: PathBuf) {
     iterate_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
-        .filter_map(|(path, document)| archive_mdast(&document.body).map(|mdast| (path, MdastDocument { frontmatter: None, body: mdast }.render())))
+        .filter_map(|(path, document)| {
+            archive_mdast(&document.body).map(|mdast| {
+                (
+                    path,
+                    MdastDocument {
+                        frontmatter: None,
+                        body: mdast,
+                    }
+                    .render(),
+                )
+            })
+        })
         .map(|(path, content)| {
             println!("Archiving {}", path.display());
             File::atomic_overwrite(&path, content)

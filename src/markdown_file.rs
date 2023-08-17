@@ -23,7 +23,7 @@ impl File {
             path.extension()
                 .unwrap_or_default()
                 .to_str()
-                .map_or_else(String::new, |s| format!(".{}", s))
+                .map_or_else(String::new, |s| format!(".{s}"))
         ));
         fs::write(&tmp_path, content)?;
         fs::rename(tmp_path, path)?;
