@@ -1,5 +1,5 @@
 [package]
-name = "todosage"
+name = "marksage"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,18 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
+lazy_static = "1.4.0"
+markdown = "1.0.0-alpha.11"
+ntfy = { version = "0.3.3", features = ["blocking"] }
+paste = "1.0.14"
+rand = "0.8.5"
+rayon = "1.7.0"
+regex = "1.9.1"
+unicode-width = "0.1.10"
+url = "2.4.0"
+walkdir = "2.3.3"
+
+[dev-dependencies]
+indoc = "2.0.3"
+pretty_assertions = "1.4.0"
+proptest = "1.2.0"
