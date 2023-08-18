@@ -1,3 +1,11 @@
 {
-  "cSpell.words": ["indoc", "mdast", "ntfy", "proptest", "todos", "walkdir"]
+  "cSpell.words": [
+    "indoc",
+    "marksage",
+    "mdast",
+    "ntfy",
+    "proptest",
+    "todos",
+    "walkdir"
+  ]
 }

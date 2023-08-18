@@ -63,7 +63,7 @@ fn main() {
             archive(args.vault_path);
         }
         Commands::NotifyConflicts { ntfy_url, topic } => {
-            notify_conflicts(args.vault_path, ntfy_url, topic);
+            notify_conflicts(&args.vault_path, ntfy_url, topic);
         }
     }
 }

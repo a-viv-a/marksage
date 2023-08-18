@@ -673,6 +673,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "marksage"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "indoc",
+ "lazy_static",
+ "markdown",
+ "ntfy",
+ "paste",
+ "pretty_assertions",
+ "proptest",
+ "rand",
+ "rayon",
+ "regex",
+ "unicode-width",
+ "url",
+ "walkdir",
+]
+
+[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1290,26 +1310,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "todosage"
-version = "0.1.0"
-dependencies = [
- "clap",
- "indoc",
- "lazy_static",
- "markdown",
- "ntfy",
- "paste",
- "pretty_assertions",
- "proptest",
- "rand",
- "rayon",
- "regex",
- "unicode-width",
- "url",
- "walkdir",
-]
 
 [[package]]
 name = "tokio"
