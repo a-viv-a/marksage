@@ -1,11 +1,14 @@
 mod archive;
 mod markdown_file;
+mod notify_conflicts;
 mod util;
 
 use std::path::PathBuf;
 
+use crate::notify_conflicts::notify_conflicts;
 use archive::archive;
 use clap::{Parser, Subcommand};
+use url::Url;
 
 fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
     let path = PathBuf::from(arg);
@@ -17,6 +20,11 @@ fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
         )),
         Err(e) => Err(e),
     }
+}
+
+fn parse_url(arg: &str) -> Result<Url, url::ParseError> {
+    let url = arg.to_string();
+    Url::parse(&url)
 }
 
 #[derive(Parser, Debug)]
@@ -35,16 +43,27 @@ struct Cli {
 enum Commands {
     /// Archive todos that have been entirely completed
     Archive {},
+    /// Use ntfy.sh to send a push notification about sync conflicts
+    NotifyConflicts {
+        /// The ntfy.sh url to send the notification to
+        #[arg(short, long)]
+        #[clap(value_parser = parse_url, default_value = "https://ntfy.sh")]
+        ntfy_url: Url,
+        /// The topic to send the notification to
+        #[arg(short, long)]
+        topic: String,
+    },
 }
 
 fn main() {
     let args = Cli::parse();
-    println!("Vault Path: {}", args.vault_path.display());
-    println!("Command: {:?}", args.command);
 
     match args.command {
         Commands::Archive {} => {
             archive(args.vault_path);
+        }
+        Commands::NotifyConflicts { ntfy_url, topic } => {
+            notify_conflicts(args.vault_path, ntfy_url, topic);
         }
     }
 }

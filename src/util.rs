@@ -41,7 +41,7 @@ pub fn is_visible(entry: &DirEntry) -> bool {
         .map_or(false, |s| !s.starts_with('.'))
 }
 
-fn is_sync_conflict(entry: &DirEntry) -> bool {
+pub fn is_sync_conflict(entry: &DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
