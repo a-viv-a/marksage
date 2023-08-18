@@ -1,10 +1,15 @@
 use std::path::PathBuf;
 
+use lazy_static::lazy_static;
 use rayon::prelude::*;
 use regex::Regex;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::markdown_file;
+
+lazy_static! {
+    static ref IS_SYNC_CONFLICT: Regex = Regex::new(r"\.sync-conflict-\d+-\d+-").unwrap();
+}
 
 /// Returns a regex that matches markdown files if they contain the given tag
 ///
@@ -36,6 +41,13 @@ pub fn is_visible(entry: &DirEntry) -> bool {
         .map_or(false, |s| !s.starts_with('.'))
 }
 
+fn is_sync_conflict(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map_or(false, |s| IS_SYNC_CONFLICT.is_match(s))
+}
+
 pub fn iterate_tagged_markdown_files(
     vault_path: PathBuf,
     tag: &str,
@@ -44,7 +56,7 @@ pub fn iterate_tagged_markdown_files(
 
     WalkDir::new(vault_path)
         .into_iter()
-        .filter_entry(is_visible)
+        .filter_entry(|e| is_visible(e) && !is_sync_conflict(e))
         .map(Result::unwrap)
         .par_bridge()
         .filter(|e| e.file_type().is_file())
