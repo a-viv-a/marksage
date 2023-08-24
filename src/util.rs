@@ -54,6 +54,12 @@ pub fn iterate_tagged_markdown_files(
 ) -> impl ParallelIterator<Item = markdown_file::File> {
     let is_tagged = markdown_contains_tag(tag).unwrap();
 
+    iterate_markdown_files(vault_path).filter(move |f| is_tagged.is_match(f.content.as_str()))
+}
+
+pub fn iterate_markdown_files(
+    vault_path: PathBuf,
+) -> impl ParallelIterator<Item = markdown_file::File> {
     WalkDir::new(vault_path)
         .into_iter()
         .filter_entry(|e| is_visible(e) && !is_sync_conflict(e))
@@ -62,7 +68,6 @@ pub fn iterate_tagged_markdown_files(
         .filter(|e| e.file_type().is_file())
         .filter(|e| e.path().extension().unwrap_or_default() == "md")
         .map(|e| markdown_file::File::at_path(e.path().to_path_buf()).unwrap())
-        .filter(move |f| is_tagged.is_match(f.content.as_str()))
 }
 
 #[cfg(test)]

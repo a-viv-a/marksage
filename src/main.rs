@@ -1,4 +1,5 @@
 mod archive;
+mod format_files;
 mod markdown_file;
 mod notify_conflicts;
 mod util;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 use crate::notify_conflicts::notify_conflicts;
 use archive::archive;
 use clap::{Parser, Subcommand};
+use format_files::format_files;
 use url::Url;
 
 fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
@@ -43,6 +45,8 @@ struct Cli {
 enum Commands {
     /// Archive todos that have been entirely completed
     Archive {},
+    /// Apply basic formatting to all markdown files in the vault
+    Format {},
     /// Use ntfy.sh to send a push notification about sync conflicts
     NotifyConflicts {
         /// The ntfy.sh url to send the notification to
@@ -61,6 +65,9 @@ fn main() {
     match args.command {
         Commands::Archive {} => {
             archive(args.vault_path);
+        }
+        Commands::Format {} => {
+            format_files(args.vault_path);
         }
         Commands::NotifyConflicts { ntfy_url, topic } => {
             notify_conflicts(&args.vault_path, ntfy_url, topic);
