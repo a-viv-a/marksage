@@ -1,9 +1,10 @@
-use std::{borrow::Cow, cell::Cell, mem, path::PathBuf};
+use std::{borrow::Cow, path::PathBuf};
 
 use lazy_static::lazy_static;
 use markdown::mdast::{self, Node};
 use rayon::prelude::ParallelIterator;
 use regex::Regex;
+use replace_with::replace_with_or_abort;
 
 use crate::{
     markdown_file::{File, MdastDocument},
@@ -21,7 +22,7 @@ fn text_replace(text: String) -> String {
     }
 }
 
-fn format_node(mut node: Node, changed: &Cell<bool>) -> Node {
+fn format_node(mut node: Node) -> Node {
     match node {
         Node::Text(text) => Node::Text(mdast::Text {
             value: text_replace(text.value),
@@ -29,16 +30,8 @@ fn format_node(mut node: Node, changed: &Cell<bool>) -> Node {
         }),
         _ => {
             if let Some(children) = node.children_mut() {
-                for i in 0..children.len() {
-                    let owned_child = mem::replace(
-                        &mut children[i],
-                        Node::Text(mdast::Text {
-                            value: String::new(),
-                            position: Default::default(),
-                        }),
-                    );
-                    let new_child = format_node(owned_child, changed);
-                    children[i] = new_child;
+                for child in children.iter_mut() {
+                    replace_with_or_abort(child, format_node);
                 }
             }
             node
@@ -46,25 +39,22 @@ fn format_node(mut node: Node, changed: &Cell<bool>) -> Node {
     }
 }
 
-fn format_document(document: MdastDocument) -> Option<MdastDocument> {
-    let changed = Cell::new(false);
-    let new_body = match format_node(Node::Root(document.body), &changed) {
+fn format_document(document: MdastDocument) -> MdastDocument {
+    let new_body = match format_node(Node::Root(document.body)) {
         Node::Root(root) => root,
         _ => unreachable!(),
     };
 
-    Some(MdastDocument {
+    MdastDocument {
         body: new_body,
         frontmatter: document.frontmatter,
-    })
+    }
 }
 
 pub fn format_files(vault_path: PathBuf) {
     iterate_markdown_files(vault_path)
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
-        .filter_map(|(path, document)| {
-            format_document(document).map(|document| (path, document.render()))
-        })
+        .map(|(path, document)| (path, format_document(document).render()))
         .map(|(path, content)| {
             println!("Formatting {}", path.display());
             File::atomic_overwrite(&path, content)
