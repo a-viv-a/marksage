@@ -26,7 +26,7 @@ fn format_node(mut node: Node) -> Node {
     match node {
         Node::Text(text) => Node::Text(mdast::Text {
             value: text_replace(text.value),
-            position: text.position,
+            position: None, // position may be changed by text replacement
         }),
         _ => {
             if let Some(children) = node.children_mut() {
