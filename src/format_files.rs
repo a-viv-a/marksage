@@ -12,11 +12,11 @@ use crate::{
 };
 
 lazy_static! {
-    static ref TEXT_REPLACE: Regex = Regex::new("(--)").unwrap();
+    static ref EM_DASH_REPLACE: Regex = Regex::new("([[:alnum:]])(--)([[:alnum:]])").unwrap();
 }
 
 fn text_replace(text: String) -> String {
-    match TEXT_REPLACE.replace_all(&text, "—") {
+    match EM_DASH_REPLACE.replace_all(&text, "${1}—${3}") {
         Cow::Borrowed(_) => text,
         Cow::Owned(text) => text,
     }
