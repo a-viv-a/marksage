@@ -6,7 +6,7 @@ use walkdir::WalkDir;
 
 use crate::util::is_sync_conflict;
 
-pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) {
+pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) -> Option<i32> {
     let sync_conflicts = WalkDir::new(vault_path.clone())
         .into_iter()
         .map(Result::unwrap)
@@ -24,7 +24,7 @@ pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) {
 
     if sync_conflicts.is_empty() {
         println!("No sync conflicts found");
-        return;
+        return None;
     }
 
     match Dispatcher::builder(ntfy_url).build().unwrap().send(
@@ -33,7 +33,13 @@ pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) {
             .message(sync_conflicts.join("\n"))
             .priority(ntfy::Priority::High),
     ) {
-        Ok(_) => println!("Successfully sent notification"),
-        Err(e) => println!("Failed to send notification: {e}"),
+        Ok(_) => {
+            println!("Successfully sent notification");
+            None
+        }
+        Err(e) => {
+            println!("Failed to send notification: {e}");
+            Some(2)
+        }
     }
 }

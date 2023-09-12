@@ -6,10 +6,7 @@ use rayon::prelude::ParallelIterator;
 use regex::Regex;
 use replace_with::replace_with_or_abort;
 
-use crate::{
-    markdown_file::{File, MdastDocument},
-    util::iterate_markdown_files,
-};
+use crate::{markdown_file::MdastDocument, util::iterate_markdown_files};
 
 lazy_static! {
     static ref EM_DASH_REPLACE: Regex = Regex::new("([[:alnum:]])(--)([[:alnum:]])").unwrap();
@@ -51,13 +48,9 @@ fn format_document(document: MdastDocument) -> MdastDocument {
     }
 }
 
-pub fn format_files(vault_path: PathBuf) {
+#[must_use]
+pub fn format_files(vault_path: PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
     iterate_markdown_files(vault_path)
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .map(|(path, document)| (path, format_document(document).render()))
-        .map(|(path, content)| {
-            println!("Formatting {}", path.display());
-            File::atomic_overwrite(&path, content)
-        })
-        .for_each(Result::unwrap);
 }

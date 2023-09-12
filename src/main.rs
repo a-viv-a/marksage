@@ -6,10 +6,11 @@ mod util;
 
 use std::path::PathBuf;
 
-use crate::notify_conflicts::notify_conflicts;
+use crate::{markdown_file::File, notify_conflicts::notify_conflicts};
 use archive::archive;
 use clap::{Parser, Subcommand};
 use format_files::format_files;
+use rayon::prelude::ParallelIterator;
 use url::Url;
 
 fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
@@ -37,6 +38,10 @@ struct Cli {
     #[clap(value_parser = parse_path)]
     vault_path: PathBuf,
 
+    /// Print what would be done without actually doing it
+    #[arg(short, long, default_value = "false")]
+    dry_run: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -59,18 +64,50 @@ enum Commands {
     },
 }
 
+fn apply_changes(
+    iter: impl ParallelIterator<Item = (PathBuf, String)>,
+    verb: &str,
+    dry_run: bool,
+) -> Option<i32> {
+    iter.map(|(path, content)| {
+        println!("{verb} {}", path.display());
+        if dry_run {
+            println!(
+                "  dry run, would overwrite with:\n{}",
+                content
+                    .lines()
+                    .map(|l| format!("\t{l}\n"))
+                    .collect::<String>()
+            );
+            Ok(())
+        } else {
+            File::atomic_overwrite(&path, content)
+        }
+    })
+    .map(|result| {
+        if let Err(e) = result {
+            println!("Failed to apply changes: {}", e);
+            1
+        } else {
+            0
+        }
+    })
+    .max()
+}
+
 fn main() {
     let args = Cli::parse();
 
-    match args.command {
-        Commands::Archive {} => {
-            archive(args.vault_path);
-        }
+    let exit_code = match args.command {
+        Commands::Archive {} => apply_changes(archive(args.vault_path), "Archived", args.dry_run),
         Commands::Format {} => {
-            format_files(args.vault_path);
+            apply_changes(format_files(args.vault_path), "Formatted", args.dry_run)
         }
         Commands::NotifyConflicts { ntfy_url, topic } => {
-            notify_conflicts(&args.vault_path, ntfy_url, topic);
+            notify_conflicts(&args.vault_path, ntfy_url, topic)
         }
     }
+    .unwrap_or(0);
+
+    std::process::exit(exit_code);
 }

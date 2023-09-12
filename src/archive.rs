@@ -2,10 +2,7 @@ use markdown::mdast::{self, Node};
 use rayon::iter::ParallelIterator;
 use std::path::PathBuf;
 
-use crate::{
-    markdown_file::{File, MdastDocument},
-    util::iterate_tagged_markdown_files,
-};
+use crate::{markdown_file::MdastDocument, util::iterate_tagged_markdown_files};
 
 fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
     enum Assessment {
@@ -180,7 +177,8 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
     })
 }
 
-pub fn archive(vault_path: PathBuf) {
+#[must_use]
+pub fn archive(vault_path: PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
     iterate_tagged_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| {
@@ -195,11 +193,6 @@ pub fn archive(vault_path: PathBuf) {
                 )
             })
         })
-        .map(|(path, content)| {
-            println!("Archiving {}", path.display());
-            File::atomic_overwrite(&path, content)
-        })
-        .for_each(Result::unwrap);
 }
 
 #[cfg(test)]
