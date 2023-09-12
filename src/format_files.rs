@@ -49,7 +49,7 @@ fn format_document(document: MdastDocument) -> MdastDocument {
 }
 
 #[must_use]
-pub fn format_files(vault_path: PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
+pub fn format_files(vault_path: &PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
     iterate_markdown_files(vault_path)
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .map(|(path, document)| (path, format_document(document).render()))

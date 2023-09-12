@@ -49,7 +49,7 @@ pub fn is_sync_conflict(entry: &DirEntry) -> bool {
 }
 
 pub fn iterate_tagged_markdown_files(
-    vault_path: PathBuf,
+    vault_path: &PathBuf,
     tag: &str,
 ) -> impl ParallelIterator<Item = markdown_file::File> {
     let is_tagged = markdown_contains_tag(tag).unwrap();
@@ -58,7 +58,7 @@ pub fn iterate_tagged_markdown_files(
 }
 
 pub fn iterate_markdown_files(
-    vault_path: PathBuf,
+    vault_path: &PathBuf,
 ) -> impl ParallelIterator<Item = markdown_file::File> {
     WalkDir::new(vault_path)
         .into_iter()

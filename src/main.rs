@@ -1,16 +1,21 @@
 mod archive;
 mod format_files;
 mod markdown_file;
+#[cfg(feature = "notify")]
 mod notify_conflicts;
 mod util;
 
 use std::path::PathBuf;
 
-use crate::{markdown_file::File, notify_conflicts::notify_conflicts};
+use crate::markdown_file::File;
+#[cfg(feature = "notify")]
+use crate::notify_conflicts::notify_conflicts;
 use archive::archive;
 use clap::{Parser, Subcommand};
 use format_files::format_files;
 use rayon::prelude::ParallelIterator;
+use std::io;
+#[cfg(feature = "notify")]
 use url::Url;
 
 fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
@@ -25,6 +30,7 @@ fn parse_path(arg: &str) -> Result<PathBuf, std::io::Error> {
     }
 }
 
+#[cfg(feature = "notify")]
 fn parse_url(arg: &str) -> Result<Url, url::ParseError> {
     let url = arg.to_string();
     Url::parse(&url)
@@ -40,6 +46,7 @@ struct Cli {
 
     /// Print what would be done without actually doing it
     #[arg(short, long, default_value = "false")]
+    #[cfg(feature = "dry_run")]
     dry_run: bool,
 
     #[command(subcommand)]
@@ -53,6 +60,7 @@ enum Commands {
     /// Apply basic formatting to all markdown files in the vault
     Format {},
     /// Use ntfy.sh to send a push notification about sync conflicts
+    #[cfg(feature = "notify")]
     NotifyConflicts {
         /// The ntfy.sh url to send the notification to
         #[arg(short, long)]
@@ -64,25 +72,35 @@ enum Commands {
     },
 }
 
+#[cfg(feature = "dry_run")]
+fn write_file(arg: &Cli, path: PathBuf, content: String) -> io::Result<()> {
+    if arg.dry_run {
+        println!(
+            "  dry run, would overwrite with:\n{}",
+            content
+                .lines()
+                .map(|l| format!("\t{l}\n"))
+                .collect::<String>()
+        );
+        Ok(())
+    } else {
+        File::atomic_overwrite(&path, content)
+    }
+}
+
+#[cfg(not(feature = "dry_run"))]
+fn write_file(_arg: &Cli, path: PathBuf, content: String) -> io::Result<()> {
+    File::atomic_overwrite(&path, content)
+}
+
 fn apply_changes(
+    args: &Cli,
     iter: impl ParallelIterator<Item = (PathBuf, String)>,
     verb: &str,
-    dry_run: bool,
 ) -> Option<i32> {
     iter.map(|(path, content)| {
         println!("{verb} {}", path.display());
-        if dry_run {
-            println!(
-                "  dry run, would overwrite with:\n{}",
-                content
-                    .lines()
-                    .map(|l| format!("\t{l}\n"))
-                    .collect::<String>()
-            );
-            Ok(())
-        } else {
-            File::atomic_overwrite(&path, content)
-        }
+        write_file(&args, path, content)
     })
     .map(|result| {
         if let Err(e) = result {
@@ -99,10 +117,9 @@ fn main() {
     let args = Cli::parse();
 
     let exit_code = match args.command {
-        Commands::Archive {} => apply_changes(archive(args.vault_path), "Archived", args.dry_run),
-        Commands::Format {} => {
-            apply_changes(format_files(args.vault_path), "Formatted", args.dry_run)
-        }
+        Commands::Archive {} => apply_changes(&args, archive(&args.vault_path), "Archived"),
+        Commands::Format {} => apply_changes(&args, format_files(&args.vault_path), "Formatted"),
+        #[cfg(feature = "notify")]
         Commands::NotifyConflicts { ntfy_url, topic } => {
             notify_conflicts(&args.vault_path, ntfy_url, topic)
         }

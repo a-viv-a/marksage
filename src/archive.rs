@@ -178,7 +178,7 @@ fn archive_mdast(mdast: &mdast::Root) -> Option<mdast::Root> {
 }
 
 #[must_use]
-pub fn archive(vault_path: PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
+pub fn archive(vault_path: &PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
     iterate_tagged_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| {

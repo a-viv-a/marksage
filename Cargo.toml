@@ -3,21 +3,25 @@ name = "marksage"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["dry_run", "notify"]
+dry_run = ["pretty_assertions"]
+notify = ["ntfy", "url"]
 
 [dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
 lazy_static = "1.4.0"
 markdown = "1.0.0-alpha.11"
-ntfy = { version = "0.3.3", features = ["blocking"] }
+ntfy = { version = "0.3.3", features = ["blocking"], optional = true }
 paste = "1.0.14"
 rand = "0.8.5"
 rayon = "1.7.0"
 regex = "1.9.1"
 replace_with = "0.1.7"
 unicode-width = "0.1.10"
-url = "2.4.0"
+url = { version = "2.4.0", optional = true }
 walkdir = "2.3.3"
+pretty_assertions = { version = "1.4.0", optional = true }
 
 [dev-dependencies]
 indoc = "2.0.3"
