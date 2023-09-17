@@ -16,12 +16,13 @@ impl fmt::Display for Line {
     }
 }
 
-pub fn diff(old: &str, new: &str) {
+#[must_use]
+pub fn diff(mut stdout_buffer: Vec<String>, old: &str, new: &str) -> Vec<String> {
     let diff = TextDiff::from_lines(old, new);
 
     for (idx, group) in diff.grouped_ops(3).iter().enumerate() {
         if idx > 0 {
-            println!("{:-^1$}", "-", 80);
+            stdout_buffer.push(format!("{:-^1$}\n", "-", 80));
         }
         for op in group {
             for change in diff.iter_inline_changes(op) {
@@ -30,23 +31,26 @@ pub fn diff(old: &str, new: &str) {
                     ChangeTag::Insert => ("+", Style::new().green()),
                     ChangeTag::Equal => (" ", Style::new().dim()),
                 };
-                print!(
+                stdout_buffer.push(format!(
                     "{}{} |{}",
                     s.apply_to(Line(change.old_index())).dim(),
                     s.apply_to(Line(change.new_index())).dim(),
                     s.apply_to(sign).bold(),
-                );
+                ));
                 for (emphasized, value) in change.iter_strings_lossy() {
                     if emphasized {
-                        print!("{}", s.apply_to(value).underlined().on_black());
+                        stdout_buffer
+                            .push(format!("{}", s.apply_to(value).underlined().on_black()));
                     } else {
-                        print!("{}", s.apply_to(value));
+                        stdout_buffer.push(format!("{}", s.apply_to(value)));
                     }
                 }
                 if change.missing_newline() {
-                    println!();
+                    stdout_buffer.push(format!("\n"));
                 }
             }
         }
     }
+
+    stdout_buffer
 }

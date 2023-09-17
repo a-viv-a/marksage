@@ -77,29 +77,45 @@ enum Commands {
 }
 
 #[cfg(feature = "dry_run")]
-fn write_file(arg: &Cli, path: PathBuf, content: String) -> io::Result<()> {
+fn write_file(
+    mut stdout_buffer: Vec<String>,
+    arg: &Cli,
+    path: PathBuf,
+    content: String,
+) -> (Vec<String>, io::Result<()>) {
     use std::fs;
 
     if arg.dry_run {
-        match fs::read_to_string(path) {
-            Ok(old_content) => {
-                print!("  dry run, would make the following changes:\n");
-                diff(&old_content, &content);
-            }
-            Err(_) => println!(
-                "  dry run, couldn't read old file! new file would be:\n{}",
-                content
-            ),
-        }
-        Ok(())
+        (
+            match fs::read_to_string(path) {
+                Ok(old_content) => {
+                    stdout_buffer
+                        .push("  dry run, would make the following changes:\n".to_string());
+                    diff(stdout_buffer, &old_content, &content)
+                }
+                Err(_) => {
+                    stdout_buffer.push(format!(
+                        "  dry run, couldn't read old file! new file would be:\n{}\n",
+                        content
+                    ));
+                    stdout_buffer
+                }
+            },
+            Ok(()),
+        )
     } else {
-        File::atomic_overwrite(&path, content)
+        (stdout_buffer, File::atomic_overwrite(&path, content))
     }
 }
 
 #[cfg(not(feature = "dry_run"))]
-fn write_file(_arg: &Cli, path: PathBuf, content: String) -> io::Result<()> {
-    File::atomic_overwrite(&path, content)
+fn write_file(
+    stdout_buffer: Vec<String>,
+    _arg: &Cli,
+    path: PathBuf,
+    content: String,
+) -> (Vec<String>, io::Result<()>) {
+    (stdout_buffer, File::atomic_overwrite(&path, content))
 }
 
 fn apply_changes(
@@ -108,14 +124,17 @@ fn apply_changes(
     verb: &str,
 ) -> Option<i32> {
     iter.map(|(path, content)| {
-        println!("{verb} {}", path.display());
-        write_file(&args, path, content)
+        let mut stdout_buffer: Vec<String> = Vec::with_capacity(3);
+        stdout_buffer.push(format!("{verb} {}\n", path.display()));
+        write_file(stdout_buffer, &args, path, content)
     })
-    .map(|result| {
+    .map(|(mut stdout_buffer, result)| {
         if let Err(e) = result {
-            println!("Failed to apply changes: {}", e);
+            stdout_buffer.push(format!("Failed to apply changes: {}\n", e));
+            eprintln!("{}", stdout_buffer.join(""));
             1
         } else {
+            println!("{}", stdout_buffer.join(""));
             0
         }
     })
