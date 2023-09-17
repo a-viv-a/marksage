@@ -2,24 +2,13 @@
 name = "marksage"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
-
-[lib]
-crate-type = ["cdylib"]
-
-[[bin]]
-name = "marksage"
-path = "src/main.rs"
 
 [features]
-features = ["wasm", "notify"]
-default = ["notify"]
-wasm = ["getrandom"]
+default = ["dry_run", "notify"]
+dry_run = ["similar", "console"]
 notify = ["ntfy", "url"]
 
-
 [dependencies]
-walkdir = { version = "2.3.3" }
 clap = { version = "4.3.19", features = ["derive"] }
 lazy_static = "1.4.0"
 markdown = "1.0.0-alpha.11"
@@ -31,11 +20,12 @@ regex = "1.9.1"
 replace_with = "0.1.7"
 unicode-width = "0.1.10"
 url = { version = "2.4.0", optional = true }
-similar = { version = "2.2.1", features = ["unicode", "inline"] }
-console = { version = "0.15.7" }
-wasm-bindgen = { version = "0.2.87" }
-js-sys = { version = "0.3.64" }
-getrandom = { version = "0.2.3", features = ["js"], optional = true }
+walkdir = "2.3.3"
+similar = { version = "2.2.1", features = [
+  "unicode",
+  "inline",
+], optional = true }
+console = { version = "0.15.7", optional = true }
 
 [dev-dependencies]
 indoc = "2.0.3"

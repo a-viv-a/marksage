@@ -1,4 +1,5 @@
 mod archive;
+#[cfg(feature = "dry_run")]
 mod diff;
 mod format_files;
 mod markdown_file;
@@ -8,6 +9,7 @@ mod util;
 
 use std::path::PathBuf;
 
+#[cfg(feature = "dry_run")]
 use crate::diff::diff;
 use crate::markdown_file::File;
 #[cfg(feature = "notify")]
@@ -48,6 +50,7 @@ struct Cli {
 
     /// Print what would be done without actually doing it
     #[arg(short, long, default_value = "false")]
+    #[cfg(feature = "dry_run")]
     dry_run: bool,
 
     #[command(subcommand)]
@@ -60,8 +63,8 @@ enum Commands {
     Archive {},
     /// Apply basic formatting to all markdown files in the vault
     Format {},
-    #[cfg(feature = "notify")]
     /// Use ntfy.sh to send a push notification about sync conflicts
+    #[cfg(feature = "notify")]
     NotifyConflicts {
         /// The ntfy.sh url to send the notification to
         #[arg(short, long)]
@@ -73,6 +76,7 @@ enum Commands {
     },
 }
 
+#[cfg(feature = "dry_run")]
 fn write_file(
     mut stdout_buffer: Vec<String>,
     arg: &Cli,
@@ -97,6 +101,16 @@ fn write_file(
     } else {
         (stdout_buffer, File::atomic_overwrite(&path, content))
     }
+}
+
+#[cfg(not(feature = "dry_run"))]
+fn write_file(
+    stdout_buffer: Vec<String>,
+    _arg: &Cli,
+    path: PathBuf,
+    content: String,
+) -> (Vec<String>, io::Result<()>) {
+    (stdout_buffer, File::atomic_overwrite(&path, content))
 }
 
 fn apply_changes(
