@@ -1,6 +1,6 @@
 use std::fmt;
 
-use console::Style;
+use console::{style, Style};
 use similar::{ChangeTag, TextDiff};
 
 struct Line(Option<usize>);
@@ -46,7 +46,11 @@ pub fn diff(mut stdout_buffer: Vec<String>, old: &str, new: &str) -> Vec<String>
                     }
                 }
                 if change.missing_newline() {
-                    stdout_buffer.push(format!("\n"));
+                    stdout_buffer.push(format!(
+                        "{}{}\n",
+                        style("⮜ ").bold().yellow(),
+                        s.apply_to("no newline").bold().underlined()
+                    ));
                 }
             }
         }
