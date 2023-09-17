@@ -1,4 +1,6 @@
 mod archive;
+#[cfg(feature = "dry_run")]
+mod diff;
 mod format_files;
 mod markdown_file;
 #[cfg(feature = "notify")]
@@ -7,6 +9,8 @@ mod util;
 
 use std::path::PathBuf;
 
+#[cfg(feature = "dry_run")]
+use crate::diff::diff;
 use crate::markdown_file::File;
 #[cfg(feature = "notify")]
 use crate::notify_conflicts::notify_conflicts;
@@ -74,14 +78,19 @@ enum Commands {
 
 #[cfg(feature = "dry_run")]
 fn write_file(arg: &Cli, path: PathBuf, content: String) -> io::Result<()> {
+    use std::fs;
+
     if arg.dry_run {
-        println!(
-            "  dry run, would overwrite with:\n{}",
-            content
-                .lines()
-                .map(|l| format!("\t{l}\n"))
-                .collect::<String>()
-        );
+        match fs::read_to_string(path) {
+            Ok(old_content) => {
+                print!("  dry run, would make the following changes:\n");
+                diff(&old_content, &content);
+            }
+            Err(_) => println!(
+                "  dry run, couldn't read old file! new file would be:\n{}",
+                content
+            ),
+        }
         Ok(())
     } else {
         File::atomic_overwrite(&path, content)

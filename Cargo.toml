@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 default = ["dry_run", "notify"]
-dry_run = ["pretty_assertions"]
+dry_run = ["similar", "console"]
 notify = ["ntfy", "url"]
 
 [dependencies]
@@ -21,7 +21,11 @@ replace_with = "0.1.7"
 unicode-width = "0.1.10"
 url = { version = "2.4.0", optional = true }
 walkdir = "2.3.3"
-pretty_assertions = { version = "1.4.0", optional = true }
+similar = { version = "2.2.1", features = [
+  "unicode",
+  "inline",
+], optional = true }
+console = { version = "0.15.7", optional = true }
 
 [dev-dependencies]
 indoc = "2.0.3"
