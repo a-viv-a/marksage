@@ -50,7 +50,13 @@ fn format_document(document: MdastDocument) -> MdastDocument {
 
 #[must_use]
 pub fn format_files(vault_path: &PathBuf) -> impl ParallelIterator<Item = (PathBuf, String)> {
-    iterate_markdown_files(vault_path)
-        .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
-        .map(|(path, document)| (path, format_document(document).render()))
+    iterate_markdown_files(vault_path).filter_map(|file| {
+        let document = MdastDocument::parse(file.content.as_str());
+        let render = format_document(document).render();
+        if file.content == render {
+            None
+        } else {
+            Some((file.path, render))
+        }
+    })
 }
