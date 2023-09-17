@@ -14,7 +14,7 @@ pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) -> O
         .map(|e| {
             e.path()
                 .clone()
-                .strip_prefix(&vault_path)
+                .strip_prefix(vault_path)
                 .expect("should always be a prefix as the walkdir starts at the vault path")
                 .to_str()
                 .expect("should always be a valid string")

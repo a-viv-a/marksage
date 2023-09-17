@@ -87,19 +87,14 @@ fn write_file(
 
     if arg.dry_run {
         (
-            match fs::read_to_string(path) {
-                Ok(old_content) => {
-                    stdout_buffer
-                        .push("  dry run, would make the following changes:\n".to_string());
-                    diff(stdout_buffer, &old_content, &content)
-                }
-                Err(_) => {
-                    stdout_buffer.push(format!(
-                        "  dry run, couldn't read old file! new file would be:\n{}\n",
-                        content
-                    ));
-                    stdout_buffer
-                }
+            if let Ok(old_content) = fs::read_to_string(path) {
+                stdout_buffer.push("  dry run, would make the following changes:\n".to_string());
+                diff(stdout_buffer, &old_content, &content)
+            } else {
+                stdout_buffer.push(format!(
+                    "  dry run, couldn't read old file! new file would be:\n{content}\n"
+                ));
+                stdout_buffer
             },
             Ok(()),
         )
@@ -126,11 +121,11 @@ fn apply_changes(
     iter.map(|(path, content)| {
         let mut stdout_buffer: Vec<String> = Vec::with_capacity(3);
         stdout_buffer.push(format!("{verb} {}\n", path.display()));
-        write_file(stdout_buffer, &args, path, content)
+        write_file(stdout_buffer, args, path, content)
     })
     .map(|(mut stdout_buffer, result)| {
         if let Err(e) = result {
-            stdout_buffer.push(format!("Failed to apply changes: {}\n", e));
+            stdout_buffer.push(format!("Failed to apply changes: {e}\n"));
             eprintln!("{}", stdout_buffer.join(""));
             1
         } else {

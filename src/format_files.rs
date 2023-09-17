@@ -20,27 +20,23 @@ fn text_replace(text: String) -> String {
 }
 
 fn format_node(mut node: Node) -> Node {
-    match node {
-        Node::Text(text) => Node::Text(mdast::Text {
+    if let Node::Text(text) = node {
+        Node::Text(mdast::Text {
             value: text_replace(text.value),
             position: None, // position may be changed by text replacement
-        }),
-        _ => {
-            if let Some(children) = node.children_mut() {
-                for child in children.iter_mut() {
-                    replace_with_or_abort(child, format_node);
-                }
+        })
+    } else {
+        if let Some(children) = node.children_mut() {
+            for child in children.iter_mut() {
+                replace_with_or_abort(child, format_node);
             }
-            node
         }
+        node
     }
 }
 
 fn format_document(document: MdastDocument) -> MdastDocument {
-    let new_body = match format_node(Node::Root(document.body)) {
-        Node::Root(root) => root,
-        _ => unreachable!(),
-    };
+    let Node::Root(new_body) = format_node(Node::Root(document.body)) else { unreachable!() };
 
     MdastDocument {
         body: new_body,
