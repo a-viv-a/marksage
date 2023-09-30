@@ -1,8 +1,9 @@
 use std::{fs, io, path::PathBuf};
 
-use lazy_static::lazy_static;
-use markdown::mdast::{self, Node};
-use regex::Regex;
+use markdown::{
+    mdast::{self, Node},
+    Constructs, ParseOptions,
+};
 use unicode_width::UnicodeWidthStr;
 
 pub struct File {
@@ -32,58 +33,46 @@ impl File {
 }
 
 pub struct MdastDocument {
-    pub frontmatter: Option<String>,
     pub body: mdast::Root,
-}
-
-lazy_static! {
-    static ref FRONTMATTER: Regex = Regex::new(r"(?s)^-{3}\n(.*)\n-{3}\n").unwrap();
 }
 
 impl MdastDocument {
     /// Produce an ast and frontmatter from a markdown string
     pub fn parse(md_string: &str) -> MdastDocument {
-        // mdast doesn't support frontmatter, so we have to extract it manually
-
-        let frontmatter = FRONTMATTER
-            .captures(md_string)
-            .map(|c| c.get(1).unwrap().as_str().to_string());
-
         let body = markdown::to_mdast(
-            &md_string[frontmatter.as_ref().map_or(0, |f| f.len() + 10)..],
-            &markdown::ParseOptions::gfm(),
+            &md_string,
+            &ParseOptions {
+                constructs: Constructs {
+                    math_flow: true,
+                    math_text: true,
+                    frontmatter: true,
+                    ..Constructs::gfm()
+                },
+                ..ParseOptions::gfm()
+            },
         )
         .expect("never fails with gfm");
 
         match body {
-            Node::Root(body) => MdastDocument { frontmatter, body },
+            Node::Root(body) => MdastDocument { body },
             _ => panic!("expected root node, got {body:?}"),
         }
     }
 
     #[cfg(test)]
     pub fn of(body: mdast::Root) -> MdastDocument {
-        MdastDocument {
-            frontmatter: None,
-            body,
-        }
+        MdastDocument { body }
     }
 
     pub fn render(&self) -> String {
-        format!(
-            "{}{}",
-            self.frontmatter
-                .as_ref()
-                .map_or_else(String::new, |f| format!("---\n{f}\n---\n\n")),
-            self.body
-                .children
-                .iter()
-                .map(|n| mdast_string(n, Context::default()))
-                // handles root level html
-                .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
-                .collect::<Vec<String>>()
-                .join("\n")
-        )
+        self.body
+            .children
+            .iter()
+            .map(|n| mdast_string(n, Context::default()))
+            // handles root level html
+            .map(|s| format!("{}{}", s, if s.ends_with('\n') { "" } else { "\n" }))
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
 
@@ -321,6 +310,9 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
             }
             s
         }
+        Node::Math(math) => format!("$$\n{}\n$$", math.value),
+        Node::InlineMath(math) => format!("${}$", math.value),
+        Node::Yaml(yaml) => format!("---\n{}\n---\n", yaml.value),
         _ => panic!("Unexpected node type {node:#?}"),
     }
 }
@@ -580,6 +572,7 @@ mod tests {
         mdast_frontmatter r#"
         ---
         title: "Hello, world!"
+        number: 1
         ---
 
         # Heading
@@ -621,6 +614,16 @@ mod tests {
         ---
 
         ---
+        "#
+
+        mdast_mathjax r#"
+        $$
+        \begin{aligned}
+        \dot{x} & = \sigma(y-x) \\
+        \dot{y} & = \rho x - y - xz \\
+        \dot{z} & = -\beta z + xy
+        \end{aligned}
+        $$
         "#
     }
 

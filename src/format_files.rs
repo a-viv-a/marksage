@@ -38,10 +38,7 @@ fn format_node(mut node: Node) -> Node {
 fn format_document(document: MdastDocument) -> MdastDocument {
     let Node::Root(new_body) = format_node(Node::Root(document.body)) else { unreachable!() };
 
-    MdastDocument {
-        body: new_body,
-        frontmatter: document.frontmatter,
-    }
+    MdastDocument { body: new_body }
 }
 
 #[must_use]

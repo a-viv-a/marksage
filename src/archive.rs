@@ -182,16 +182,8 @@ pub fn archive(vault_path: &PathBuf) -> impl ParallelIterator<Item = (PathBuf, S
     iterate_tagged_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| {
-            archive_mdast(&document.body).map(|mdast| {
-                (
-                    path,
-                    MdastDocument {
-                        frontmatter: None,
-                        body: mdast,
-                    }
-                    .render(),
-                )
-            })
+            archive_mdast(&document.body)
+                .map(|mdast| (path, MdastDocument { body: mdast }.render()))
         })
 }
 
