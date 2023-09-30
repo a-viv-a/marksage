@@ -294,11 +294,21 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     s += delim;
                 }
                 if let Some((cell_string, cell_width)) = cell {
-                    s += &format!(
-                        "| {}{} ",
-                        cell_string,
-                        " ".repeat(longest[i % t.align.len()] - cell_width)
-                    );
+                    let pad_len = longest[i % t.align.len()] - cell_width;
+                    s += &match t.align[i % t.align.len()] {
+                        mdast::AlignKind::Left | mdast::AlignKind::None => {
+                            format!("| {}{} ", cell_string, " ".repeat(pad_len))
+                        }
+                        mdast::AlignKind::Right => {
+                            format!("| {}{} ", " ".repeat(pad_len), cell_string)
+                        }
+                        mdast::AlignKind::Center => format!(
+                            "| {}{}{} ",
+                            " ".repeat((pad_len) / 2),
+                            cell_string,
+                            " ".repeat((pad_len + 1) / 2)
+                        ),
+                    };
                 }
                 if i % t.align.len() == t.align.len() - 1 {
                     s += "|\n";
@@ -491,7 +501,7 @@ mod tests {
         mdast_table_with_alignment r#"
         | Left | Center | Right |
         | :--- | :----: | ----: |
-        | foo  | bar    | baz   |
+        | foo  |  bar   |   baz |
         "#
 
         mdast_table_with_partial_alignment r#"
