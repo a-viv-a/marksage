@@ -182,8 +182,8 @@ pub fn archive(vault_path: &PathBuf) -> impl ParallelIterator<Item = (PathBuf, S
     iterate_tagged_markdown_files(vault_path, "todo")
         .map(|file| (file.path, MdastDocument::parse(file.content.as_str())))
         .filter_map(|(path, document)| {
-            archive_mdast(&document.body)
-                .map(|mdast| (path, MdastDocument { body: mdast }.render()))
+            archive_mdast(&document.root)
+                .map(|mdast| (path, MdastDocument { root: mdast }.render()))
         })
 }
 
@@ -204,7 +204,7 @@ mod tests {
                 let input_document = MdastDocument::parse(input);
                 let expected = indoc!($expected);
                 println!("expected: \n{}", expected);
-                match archive_mdast(&input_document.body) {
+                match archive_mdast(&input_document.root) {
                     Some(actual_mdast) => {
                         let actual = MdastDocument::of(actual_mdast).render();
                         println!("actual: \n{}", actual);

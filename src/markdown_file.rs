@@ -33,13 +33,13 @@ impl File {
 }
 
 pub struct MdastDocument {
-    pub body: mdast::Root,
+    pub root: mdast::Root,
 }
 
 impl MdastDocument {
     /// Produce an ast and frontmatter from a markdown string
     pub fn parse(md_string: &str) -> MdastDocument {
-        let body = markdown::to_mdast(
+        let root = markdown::to_mdast(
             &md_string,
             &ParseOptions {
                 constructs: Constructs {
@@ -53,19 +53,18 @@ impl MdastDocument {
         )
         .expect("never fails with gfm");
 
-        match body {
-            Node::Root(body) => MdastDocument { body },
-            _ => panic!("expected root node, got {body:?}"),
+        match root {
+            Node::Root(root) => MdastDocument { root },
+            _ => panic!("expected root node, got {root:?}"),
         }
     }
-
     #[cfg(test)]
-    pub fn of(body: mdast::Root) -> MdastDocument {
-        MdastDocument { body }
+    pub fn of(root: mdast::Root) -> MdastDocument {
+        MdastDocument { root }
     }
 
     pub fn render(&self) -> String {
-        self.body
+        self.root
             .children
             .iter()
             .map(|n| mdast_string(n, Context::default()))
@@ -342,11 +341,11 @@ mod tests {
                     match expected {
                         Some(expected) => {
                             println!("expected:\n{}\nactual:\n{}", expected, render);
-                            pretty_assert_eq!(&expected, &render, "expected (left) did not match rendered markdown (right). input ast:\n{:#?}\n\ntest: {}\nexpected / render", mdast_document.body, stringify!($name));
+                            pretty_assert_eq!(&expected, &render, "expected (left) did not match rendered markdown (right). input ast:\n{:#?}\n\ntest: {}\nexpected / render", mdast_document.root, stringify!($name));
                         }
                         None => {
                             println!("actual:\n{}", render);
-                            pretty_assert_eq!(input, &render, "input (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\ninput / render", mdast_document.body, stringify!($name));
+                            pretty_assert_eq!(input, &render, "input (left) did not match rendered markdown (right). ast:\n{:#?}\n\ntest: {}\ninput / render", mdast_document.root, stringify!($name));
                         }
                     }
                 }
