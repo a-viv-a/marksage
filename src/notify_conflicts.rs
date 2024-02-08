@@ -13,7 +13,6 @@ pub fn notify_conflicts(vault_path: &PathBuf, ntfy_url: Url, topic: String) -> O
         .filter(is_sync_conflict)
         .map(|e| {
             e.path()
-                .clone()
                 .strip_prefix(vault_path)
                 .expect("should always be a prefix as the walkdir starts at the vault path")
                 .to_str()

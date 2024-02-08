@@ -66,7 +66,14 @@ pub fn iterate_markdown_files(
         .map(Result::unwrap)
         .par_bridge()
         .filter(|e| e.file_type().is_file())
-        .filter(|e| e.path().extension().unwrap_or_default() == "md")
+        .filter(|e| e.path().extension().map(|ext| ext == "md").unwrap_or(false))
+        .filter(|e| {
+            !e.path()
+                .file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.ends_with(".excalidraw.md"))
+                .unwrap_or(false)
+        })
         .map(|e| markdown_file::File::at_path(e.path().to_path_buf()).unwrap())
 }
 
