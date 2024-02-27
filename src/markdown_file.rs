@@ -269,7 +269,8 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     .zip(t.align.iter())
                     .map(|(len, align)| match align {
                         mdast::AlignKind::Left => format!(":{}", "-".repeat(*len - 1)),
-                        mdast::AlignKind::Center => format!(":{}:", "-".repeat(*len - 2)),
+                        mdast::AlignKind::Center =>
+                            format!(":{}:", "-".repeat(len.saturating_sub(3) + 1)),
                         mdast::AlignKind::Right => format!("{}:", "-".repeat(*len - 1)),
                         mdast::AlignKind::None => "-".repeat(*len),
                     })
@@ -536,7 +537,7 @@ mod tests {
         | C | C   | C |
         "#
 
-        mdast_tiny_column_with_alignment r#"
+        mdast_tiny_column_with_alignment_center r#"
         | H | 
         | :-: |
         | C |
@@ -544,6 +545,26 @@ mod tests {
         |  H  |
         | :-: |
         |  C  |
+        "#
+
+        mdast_tiny_column_with_alignment_right r#"
+        | H |
+        | -: |
+        | C |
+        "# => r#"
+        |  H |
+        | -: |
+        |  C |
+        "#
+
+        mdast_tiny_column_with_alignment_left r#"
+        | H |
+        | :- |
+        | C |
+        "# => r#"
+        | H  |
+        | :- |
+        | C  |
         "#
 
         mdast_auto_links r#"
