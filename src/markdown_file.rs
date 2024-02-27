@@ -244,10 +244,20 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
         }
         Node::Table(t) => {
             let mut s = String::new();
-            let mut longest = vec![0; t.align.len()];
             // A 1d vector of (Cell render, width) pairs, omitting overrun cells
             let mut table_skeleton: Vec<Option<(String, usize)>> =
                 vec![None; t.children.len() * t.align.len()];
+
+            let mut longest = t
+                .align
+                .iter()
+                // handle the case when the alignment indicator is the longest thing in the column
+                .map(|align| match align {
+                    mdast::AlignKind::Left | mdast::AlignKind::Right => 2,
+                    mdast::AlignKind::Center => 3,
+                    mdast::AlignKind::None => 0,
+                })
+                .collect::<Vec<usize>>();
 
             for (row_index, row) in t.children.iter().enumerate() {
                 if let Node::TableRow(r) = row {
@@ -262,15 +272,16 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                     }
                 }
             }
+
             let delim = &format!(
                 "| {} |\n",
                 longest
                     .iter()
                     .zip(t.align.iter())
                     .map(|(len, align)| match align {
+                        // these subtractions wont overflow because the smallest value in longest is AlignKind::*'s min width
                         mdast::AlignKind::Left => format!(":{}", "-".repeat(*len - 1)),
-                        mdast::AlignKind::Center =>
-                            format!(":{}:", "-".repeat(len.saturating_sub(3) + 1)),
+                        mdast::AlignKind::Center => format!(":{}:", "-".repeat(len - 2)),
                         mdast::AlignKind::Right => format!("{}:", "-".repeat(*len - 1)),
                         mdast::AlignKind::None => "-".repeat(*len),
                     })
