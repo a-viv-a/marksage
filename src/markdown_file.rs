@@ -536,6 +536,16 @@ mod tests {
         | C | C   | C |
         "#
 
+        mdast_tiny_column_with_alignment r#"
+        | H | 
+        | :-: |
+        | C |
+        "# => r#"
+        |  H  |
+        | :-: |
+        |  C  |
+        "#
+
         mdast_auto_links r#"
         <https://www.google.com>
         <mailto:test@example.com>
