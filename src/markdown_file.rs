@@ -255,7 +255,7 @@ fn mdast_string(node: &Node, ctx: Context) -> String {
                 .map(|align| match align {
                     mdast::AlignKind::Left | mdast::AlignKind::Right => 2,
                     mdast::AlignKind::Center => 3,
-                    mdast::AlignKind::None => 0,
+                    mdast::AlignKind::None => 1,
                 })
                 .collect::<Vec<usize>>();
 
@@ -576,6 +576,16 @@ mod tests {
         | H  |
         | :- |
         | C  |
+        "#
+
+        mdast_table_with_empty_columns r#"
+        | H | | H |
+        | - | - | - |
+        | C | | C |
+        "# => r#"
+        | H |   | H |
+        | - | - | - |
+        | C |   | C |
         "#
 
         mdast_auto_links r#"
